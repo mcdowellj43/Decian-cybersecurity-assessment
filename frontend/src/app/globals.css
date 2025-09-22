@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+/* Project-specific CSS variables following CLAUDE.md color scheme */
+:root {
+  --background: #ffffff;
+  --foreground: #000000;
+  --primary: #2563eb;
+  --secondary: #3b82f6;
+  --light-blue: #dbeafe;
+  --dark-grey: #374151;
+  --medium-grey: #6b7280;
+  --light-grey: #f3f4f6;
+
+  /* Risk colors */
+  --risk-high: #dc2626;
+  --risk-medium: #ea580c;
+  --risk-low: #16a34a;
+  --risk-info: #2563eb;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+}
+
+/* Base component styles */
+.btn-primary {
+  @apply bg-primary hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+}
+
+.btn-secondary {
+  @apply bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+}
+
+.card {
+  @apply bg-white border border-gray-200 rounded-xl shadow-card p-6;
+}
+
+.risk-indicator {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.risk-critical {
+  @apply bg-red-100 text-red-800;
+}
+
+.risk-high {
+  @apply bg-red-100 text-red-800;
+}
+
+.risk-medium {
+  @apply bg-orange-100 text-orange-800;
+}
+
+.risk-low {
+  @apply bg-green-100 text-green-800;
+}
+
+.risk-info {
+  @apply bg-blue-100 text-blue-800;
+}

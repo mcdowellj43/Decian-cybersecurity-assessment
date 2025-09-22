@@ -1,0 +1,60 @@
+{
+  "name": "decian-cybersecurity-assessment",
+  "version": "1.0.0",
+  "description": "Comprehensive cybersecurity risk assessment platform with web dashboard and distributed Go-based agents",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "npm run build:backend && npm run build:frontend && npm run build:agents",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "build:agents": "cd agents && make build",
+    "test": "npm run test:backend && npm run test:frontend && npm run test:agents",
+    "test:backend": "cd backend && npm test",
+    "test:frontend": "cd frontend && npm test",
+    "test:agents": "cd agents && go test ./...",
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "cd backend && npm run lint",
+    "lint:frontend": "cd frontend && npm run lint",
+    "typecheck": "npm run typecheck:backend && npm run typecheck:frontend",
+    "typecheck:backend": "cd backend && npm run typecheck",
+    "typecheck:frontend": "cd frontend && npm run typecheck",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build",
+    "db:migrate": "cd backend && npx prisma migrate dev",
+    "db:generate": "cd backend && npx prisma generate",
+    "db:seed": "cd backend && npx prisma db seed",
+    "setup": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ../agents && go mod tidy"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/decian/cybersecurity-assessment.git"
+  },
+  "keywords": [
+    "cybersecurity",
+    "risk-assessment",
+    "security-analysis",
+    "windows-security",
+    "go",
+    "nextjs",
+    "nodejs",
+    "typescript"
+  ],
+  "author": "Decian",
+  "license": "PROPRIETARY",
+  "bugs": {
+    "url": "https://github.com/decian/cybersecurity-assessment/issues"
+  },
+  "homepage": "https://github.com/decian/cybersecurity-assessment#readme",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ]
+}
