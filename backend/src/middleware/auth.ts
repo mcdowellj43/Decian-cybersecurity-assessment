@@ -109,6 +109,34 @@ export const requireAdmin = authorize(UserRole.ADMIN);
 export const requireUser = authorize(UserRole.ADMIN, UserRole.USER);
 
 /**
+ * Middleware to require a minimum role level
+ */
+export const requireRole = (minRole: UserRole) => {
+  const roleHierarchy = {
+    [UserRole.VIEWER]: 0,
+    [UserRole.USER]: 1,
+    [UserRole.ADMIN]: 2,
+  };
+
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return next(new AppError('Authentication required', 401));
+    }
+
+    const userRoleLevel = roleHierarchy[req.user.role];
+    const requiredRoleLevel = roleHierarchy[minRole];
+
+    if (userRoleLevel < requiredRoleLevel) {
+      return next(
+        new AppError('Insufficient permissions for this action', 403)
+      );
+    }
+
+    next();
+  };
+};
+
+/**
  * Optional authentication middleware (doesn't fail if no token)
  */
 export const optionalAuth = async (

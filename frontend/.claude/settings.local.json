@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Decian/Decian tools and resources/vscode/Decian-cybersecurity-assessment/backend/src/controllers/**)",
+      "Read(//c/Decian/Decian tools and resources/vscode/Decian-cybersecurity-assessment/backend/src/routes/**)",
+      "Read(//c/Decian/Decian tools and resources/vscode/Decian-cybersecurity-assessment/agents/**)",
+      "Read(//c/Decian/Decian tools and resources/vscode/Decian-cybersecurity-assessment/backend/src/**)",
+      "Read(//c/Decian/Decian tools and resources/vscode/Decian-cybersecurity-assessment/**)",
+      "Bash(npm run dev:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(docker:*)",
+      "Bash(where psql)",
+      "Bash(PORT=3002 npm run dev)",
+      "Bash(choco:*)",
+      "Bash(PORT=8080 npm run dev)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx prisma:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

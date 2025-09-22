@@ -70,6 +70,10 @@ app.get('/api', (req, res) => {
     endpoints: {
       health: '/health',
       api: '/api',
+      auth: '/api/auth',
+      agents: '/api/agents',
+      assessments: '/api/assessments',
+      reports: '/api/reports',
       docs: '/api/docs'
     }
   });
@@ -77,9 +81,15 @@ app.get('/api', (req, res) => {
 
 // Import routes
 import authRoutes from '@/routes/auth';
+import agentRoutes from '@/routes/agents';
+import assessmentRoutes from '@/routes/assessments';
+import reportRoutes from '@/routes/reports';
 
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/agents', agentRoutes);
+app.use('/api/assessments', assessmentRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Error handling middleware (must be last)
 app.use(notFoundHandler);

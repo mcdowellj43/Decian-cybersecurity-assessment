@@ -1,0 +1,49 @@
+# Decian Agent Configuration Example
+# Copy this file to .decian-agent.yaml and configure for your environment
+
+agent:
+  # Agent ID (set automatically during registration)
+  id: ""
+
+  # Hostname (defaults to system hostname)
+  hostname: ""
+
+  # Agent version
+  version: "1.0.0"
+
+  # Dry run mode - don't submit results to dashboard
+  dry_run: false
+
+dashboard:
+  # Dashboard API endpoint URL (required)
+  url: "https://your-dashboard.example.com"
+
+  # Request timeout in seconds
+  timeout: 30
+
+auth:
+  # Authentication token for dashboard API (required)
+  token: "your-jwt-token-here"
+
+assessment:
+  # Default modules to run if none specified
+  default_modules:
+    - "WIN_UPDATE_CHECK"
+    - "WIN_FIREWALL_STATUS_CHECK"
+    - "PSHELL_EXEC_POLICY_CHECK"
+    - "EOL_SOFTWARE_CHECK"
+
+  # Module-specific configuration
+  module_config:
+    # Example: configure timeout for specific modules
+    WIN_UPDATE_CHECK: "timeout=300"
+
+logging:
+  # Enable verbose logging
+  verbose: false
+
+  # Log level (debug, info, warn, error)
+  level: "info"
+
+  # Log file path (optional, logs to stdout if not specified)
+  file: ""

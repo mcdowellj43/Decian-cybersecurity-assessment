@@ -4,7 +4,8 @@
       "Bash(npm install:*)",
       "Bash(npm run build:*)",
       "Bash(npm init:*)",
-      "Bash(npx prisma generate:*)"
+      "Bash(npx prisma generate:*)",
+      "Bash(go mod init:*)"
     ],
     "deny": [],
     "ask": []

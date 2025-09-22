@@ -138,3 +138,6 @@ export const validateSchema = (schema: z.ZodSchema) => {
     }
   };
 };
+
+// Alias for validateSchema for consistency
+export const validateRequest = validateSchema;

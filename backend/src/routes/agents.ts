@@ -1,0 +1,68 @@
+import { Router } from 'express';
+import { authenticate, requireRole } from '@/middleware/auth';
+import {
+  registerAgent,
+  getAgents,
+  getAgentById,
+  updateAgent,
+  deleteAgent,
+  agentHeartbeat,
+  getAgentStats,
+} from '@/controllers/agentController';
+import { UserRole } from '@prisma/client';
+
+const router = Router();
+
+// All agent routes require authentication
+router.use(authenticate);
+
+/**
+ * @route   POST /api/agents/register
+ * @desc    Register a new agent
+ * @access  Private (USER+)
+ */
+router.post('/register', requireRole(UserRole.USER), registerAgent);
+
+/**
+ * @route   GET /api/agents/stats
+ * @desc    Get agent statistics for organization
+ * @access  Private (VIEWER+)
+ */
+router.get('/stats', getAgentStats);
+
+/**
+ * @route   GET /api/agents
+ * @desc    Get all agents for organization
+ * @access  Private (VIEWER+)
+ */
+router.get('/', getAgents);
+
+/**
+ * @route   GET /api/agents/:id
+ * @desc    Get specific agent details
+ * @access  Private (VIEWER+)
+ */
+router.get('/:id', getAgentById);
+
+/**
+ * @route   PUT /api/agents/:id
+ * @desc    Update agent configuration
+ * @access  Private (USER+)
+ */
+router.put('/:id', requireRole(UserRole.USER), updateAgent);
+
+/**
+ * @route   DELETE /api/agents/:id
+ * @desc    Delete agent
+ * @access  Private (ADMIN)
+ */
+router.delete('/:id', requireRole(UserRole.ADMIN), deleteAgent);
+
+/**
+ * @route   POST /api/agents/:id/heartbeat
+ * @desc    Agent heartbeat to update status
+ * @access  Private (USER+) - Agents will use API keys
+ */
+router.post('/:id/heartbeat', requireRole(UserRole.USER), agentHeartbeat);
+
+export default router;

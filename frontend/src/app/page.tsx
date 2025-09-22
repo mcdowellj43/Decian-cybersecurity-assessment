@@ -1,10 +1,65 @@
+'use client';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { RiskIndicator, RiskProgressBar } from '@/components/ui/RiskIndicator';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { Shield, Activity, FileText, AlertTriangle } from 'lucide-react';
+import { useDashboardData } from '@/hooks/useDashboardData';
+import { Shield, Activity, FileText, AlertTriangle, Loader2 } from 'lucide-react';
+
+function LoadingSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
+                  <div className="h-8 bg-gray-200 rounded w-16"></div>
+                </div>
+                <div className="h-12 w-12 bg-gray-200 rounded"></div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ErrorState({ error }: { error: string }) {
+  return (
+    <Card className="border-red-200 bg-red-50">
+      <CardContent className="p-6">
+        <div className="flex items-center space-x-2">
+          <AlertTriangle className="h-5 w-5 text-red-600" />
+          <p className="text-red-800">Failed to load dashboard data: {error}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Home() {
+  const { agentStats, assessmentStats, recentAssessments, isLoading, error } = useDashboardData();
+
+  if (error) {
+    return (
+      <ProtectedRoute>
+        <div className="space-y-6">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">Security Overview</h1>
+            <p className="text-gray-600 mt-2">
+              Comprehensive cybersecurity assessment dashboard
+            </p>
+          </div>
+          <ErrorState error={error} />
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
   return (
     <ProtectedRoute>
       <div className="space-y-6">
@@ -16,6 +71,8 @@ export default function Home() {
         </p>
       </div>
 
+      {isLoading ? <LoadingSkeleton /> : (
+        <>
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="bg-gradient-to-r from-blue-50 to-primary-50">
@@ -23,7 +80,9 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Active Agents</p>
-                <p className="text-3xl font-bold text-gray-900">12</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {agentStats?.recentlyActive || 0}
+                </p>
               </div>
               <Activity className="h-12 w-12 text-primary" />
             </div>
@@ -35,7 +94,9 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Completed Assessments</p>
-                <p className="text-3xl font-bold text-gray-900">156</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {assessmentStats?.statusCounts?.COMPLETED || 0}
+                </p>
               </div>
               <Shield className="h-12 w-12 text-green-600" />
             </div>
@@ -46,8 +107,10 @@ export default function Home() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Critical Findings</p>
-                <p className="text-3xl font-bold text-gray-900">8</p>
+                <p className="text-sm font-medium text-gray-600">Recent Assessments</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {assessmentStats?.recentAssessments || 0}
+                </p>
               </div>
               <AlertTriangle className="h-12 w-12 text-orange-600" />
             </div>
@@ -58,8 +121,10 @@ export default function Home() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Reports Generated</p>
-                <p className="text-3xl font-bold text-gray-900">89</p>
+                <p className="text-sm font-medium text-gray-600">Total Assessments</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {assessmentStats?.totalAssessments || 0}
+                </p>
               </div>
               <FileText className="h-12 w-12 text-purple-600" />
             </div>
@@ -75,10 +140,10 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <RiskProgressBar score={72} />
+              <RiskProgressBar score={assessmentStats?.averageRiskScore || 0} />
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Risk Level</span>
-                <RiskIndicator score={72} />
+                <RiskIndicator score={assessmentStats?.averageRiskScore || 0} />
               </div>
             </div>
           </CardContent>
@@ -90,27 +155,30 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">DC Security Check</p>
-                  <p className="text-sm text-gray-600">DESKTOP-WIN01</p>
+              {recentAssessments.length > 0 ? (
+                recentAssessments.slice(0, 3).map((assessment) => (
+                  <div key={assessment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        Assessment {assessment.id.substring(0, 8)}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {assessment.agent?.hostname || 'Unknown Agent'}
+                      </p>
+                    </div>
+                    <RiskIndicator
+                      score={assessment.overallRiskScore || 0}
+                      showScore={false}
+                      size="sm"
+                    />
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No recent assessments found</p>
+                  <p className="text-sm">Run your first assessment to see activity here</p>
                 </div>
-                <RiskIndicator level="high" showScore={false} size="sm" />
-              </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">Password Policy Analysis</p>
-                  <p className="text-sm text-gray-600">SERVER-01</p>
-                </div>
-                <RiskIndicator level="medium" showScore={false} size="sm" />
-              </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">Windows Update Check</p>
-                  <p className="text-sm text-gray-600">WORKSTATION-05</p>
-                </div>
-                <RiskIndicator level="low" showScore={false} size="sm" />
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -130,6 +198,8 @@ export default function Home() {
           </div>
         </CardContent>
       </Card>
+        </>
+      )}
       </div>
     </ProtectedRoute>
   );
