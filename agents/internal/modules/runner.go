@@ -160,8 +160,7 @@ func (r *Runner) RunModules(moduleNames []string) ([]AssessmentResult, error) {
 func GetAvailableModules() []ModuleInfo {
 	var modules []ModuleInfo
 
-	// Return module info for all available modules
-	// This would be populated as modules are implemented
+	// Legacy Windows modules
 	modules = append(modules, ModuleInfo{
 		Name:             "Windows Update Check",
 		Description:      "Checks for missing Windows updates and patch status",
@@ -171,30 +170,94 @@ func GetAvailableModules() []ModuleInfo {
 		RequiresAdmin:    true,
 	})
 
+	// New security assessment modules
 	modules = append(modules, ModuleInfo{
-		Name:             "Windows Firewall Status",
-		Description:      "Checks Windows Firewall configuration and status",
-		CheckType:        CheckTypeWinFirewallStatusCheck,
+		Name:             "Misconfiguration Discovery",
+		Description:      "Scan for risky configurations such as open RDP, permissive firewall rules, guest accounts, insecure protocols",
+		CheckType:        CheckTypeMisconfigurationDiscovery,
+		Platform:         "windows",
+		DefaultRiskLevel: RiskLevelHigh,
+		RequiresAdmin:    true,
+	})
+
+	modules = append(modules, ModuleInfo{
+		Name:             "Weak Password Detection",
+		Description:      "Identify accounts using vendor defaults or passwords found in breach dictionaries",
+		CheckType:        CheckTypeWeakPasswordDetection,
+		Platform:         "windows",
+		DefaultRiskLevel: RiskLevelHigh,
+		RequiresAdmin:    true,
+	})
+
+	modules = append(modules, ModuleInfo{
+		Name:             "Data Exposure Check",
+		Description:      "Scan for exposed sensitive files, cloud storage misconfigurations, and unencrypted data stores",
+		CheckType:        CheckTypeDataExposureCheck,
+		Platform:         "windows",
+		DefaultRiskLevel: RiskLevelHigh,
+		RequiresAdmin:    true,
+	})
+
+	modules = append(modules, ModuleInfo{
+		Name:             "Phishing Exposure Indicators",
+		Description:      "Detect browser configurations, email settings, and security features that increase phishing susceptibility",
+		CheckType:        CheckTypePhishingExposureIndicators,
 		Platform:         "windows",
 		DefaultRiskLevel: RiskLevelHigh,
 		RequiresAdmin:    false,
 	})
 
 	modules = append(modules, ModuleInfo{
-		Name:             "PowerShell Execution Policy",
-		Description:      "Checks PowerShell execution policy settings",
-		CheckType:        CheckTypePshellExecPolicyCheck,
+		Name:             "Patch & Update Status",
+		Description:      "Evaluate Windows Update configuration, missing patches, and third-party software update status",
+		CheckType:        CheckTypePatchUpdateStatus,
+		Platform:         "windows",
+		DefaultRiskLevel: RiskLevelHigh,
+		RequiresAdmin:    true,
+	})
+
+	modules = append(modules, ModuleInfo{
+		Name:             "Elevated Permissions Report",
+		Description:      "Identify accounts with administrative privileges, service accounts with high privileges, and privilege escalation risks",
+		CheckType:        CheckTypeElevatedPermissionsReport,
+		Platform:         "windows",
+		DefaultRiskLevel: RiskLevelHigh,
+		RequiresAdmin:    true,
+	})
+
+	modules = append(modules, ModuleInfo{
+		Name:             "Excessive Sharing & Collaboration Risks",
+		Description:      "Analyze network shares, file permissions, cloud storage sync, and collaboration tool configurations for data exposure risks",
+		CheckType:        CheckTypeExcessiveSharingRisks,
+		Platform:         "windows",
+		DefaultRiskLevel: RiskLevelMedium,
+		RequiresAdmin:    true,
+	})
+
+	modules = append(modules, ModuleInfo{
+		Name:             "Password Policy Weakness",
+		Description:      "Analyze domain and local password policies for compliance with security best practices",
+		CheckType:        CheckTypePasswordPolicyWeakness,
+		Platform:         "windows",
+		DefaultRiskLevel: RiskLevelHigh,
+		RequiresAdmin:    true,
+	})
+
+	modules = append(modules, ModuleInfo{
+		Name:             "Open Service/Port Identification",
+		Description:      "Identify listening services, open ports, and network service configurations that may present security risks",
+		CheckType:        CheckTypeOpenServicePortID,
 		Platform:         "windows",
 		DefaultRiskLevel: RiskLevelMedium,
 		RequiresAdmin:    false,
 	})
 
 	modules = append(modules, ModuleInfo{
-		Name:             "End-of-Life Software Detection",
-		Description:      "Detects installed software that is end-of-life",
-		CheckType:        CheckTypeEOLSoftwareCheck,
+		Name:             "User Behavior Risk Signals",
+		Description:      "Analyze user activity patterns, installed applications, browser usage, and system configurations for security risk indicators",
+		CheckType:        CheckTypeUserBehaviorRiskSignals,
 		Platform:         "windows",
-		DefaultRiskLevel: RiskLevelHigh,
+		DefaultRiskLevel: RiskLevelMedium,
 		RequiresAdmin:    false,
 	})
 
@@ -203,13 +266,20 @@ func GetAvailableModules() []ModuleInfo {
 
 // registerModules registers all available assessment modules
 func (r *Runner) registerModules() {
-	// Register Windows Update Check module
+	// Register legacy Windows modules
 	r.modules[CheckTypeWinUpdateCheck] = NewWinUpdateCheckModule(r.logger)
 
-	// Additional modules would be registered here as they're implemented
-	// r.modules[CheckTypeWinFirewallStatusCheck] = NewWinFirewallModule(r.logger)
-	// r.modules[CheckTypePshellExecPolicyCheck] = NewPowerShellPolicyModule(r.logger)
-	// etc.
+	// Register new security assessment modules
+	r.modules[CheckTypeMisconfigurationDiscovery] = NewMisconfigurationDiscoveryModule(r.logger)
+	r.modules[CheckTypeWeakPasswordDetection] = NewWeakPasswordDetectionModule(r.logger)
+	r.modules[CheckTypeDataExposureCheck] = NewDataExposureCheckModule(r.logger)
+	r.modules[CheckTypePhishingExposureIndicators] = NewPhishingExposureIndicatorsModule(r.logger)
+	r.modules[CheckTypePatchUpdateStatus] = NewPatchUpdateStatusModule(r.logger)
+	r.modules[CheckTypeElevatedPermissionsReport] = NewElevatedPermissionsReportModule(r.logger)
+	r.modules[CheckTypeExcessiveSharingRisks] = NewExcessiveSharingRisksModule(r.logger)
+	r.modules[CheckTypePasswordPolicyWeakness] = NewPasswordPolicyWeaknessModule(r.logger)
+	r.modules[CheckTypeOpenServicePortID] = NewOpenServicePortIDModule(r.logger)
+	r.modules[CheckTypeUserBehaviorRiskSignals] = NewUserBehaviorRiskSignalsModule(r.logger)
 
 	r.logger.Debug("Registered assessment modules", map[string]interface{}{
 		"count": len(r.modules),

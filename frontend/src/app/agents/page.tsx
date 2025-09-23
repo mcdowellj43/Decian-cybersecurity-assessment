@@ -3,6 +3,8 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAgents } from '@/hooks/useAgents';
+import { agentApi, AgentDownloadResponse } from '@/services/agentApi';
+import { useState } from 'react';
 import {
   Server,
   Activity,
@@ -12,7 +14,9 @@ import {
   Download,
   Settings,
   Trash2,
-  Loader2
+  Loader2,
+  FileText,
+  Code
 } from 'lucide-react';
 
 function LoadingSkeleton() {
@@ -124,7 +128,146 @@ function AgentCard({ agent }: { agent: any }) {
   );
 }
 
-function EmptyState() {
+function DownloadModal({
+  isOpen,
+  onClose,
+  downloadData
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  downloadData: AgentDownloadResponse | null;
+}) {
+  if (!isOpen || !downloadData) return null;
+
+  const downloadConfigFile = () => {
+    const blob = new Blob([downloadData.config], { type: 'text/yaml' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '.decian-agent.yaml';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-gray-900">Download Decian Security Agent</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {downloadData.buildRequired ? (
+            <div className="space-y-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2">
+                  <Code className="h-5 w-5 text-blue-600" />
+                  <p className="text-blue-800 font-medium">
+                    Agent requires building from source. Complete setup instructions below.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">Configuration File</h3>
+                  <div className="space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(downloadData.config)}
+                    >
+                      Copy Config
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={downloadConfigFile}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Download Config
+                    </Button>
+                  </div>
+                </div>
+                <pre className="bg-gray-50 border rounded-lg p-4 text-sm overflow-x-auto">
+                  {downloadData.config}
+                </pre>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">Setup Instructions</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyToClipboard(downloadData.instructions)}
+                  >
+                    Copy Instructions
+                  </Button>
+                </div>
+                <div className="bg-gray-50 border rounded-lg p-4">
+                  <pre className="text-sm whitespace-pre-wrap">
+                    {downloadData.instructions}
+                  </pre>
+                </div>
+              </div>
+
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h4 className="font-medium text-green-900 mb-2">✅ Agent Features</h4>
+                <ul className="text-sm text-green-800 space-y-1">
+                  <li>• 11 comprehensive security assessment modules</li>
+                  <li>• TLS 1.3 encryption with certificate pinning</li>
+                  <li>• End-to-end payload encryption (AES-256-GCM)</li>
+                  <li>• HMAC authentication for data integrity</li>
+                  <li>• Pure Go implementation (no PowerShell dependencies)</li>
+                  <li>• Enterprise-grade security controls</li>
+                </ul>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center">
+              <Download className="h-16 w-16 text-blue-600 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Agent Ready for Download
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Your pre-built agent is ready to download and deploy.
+              </p>
+              <Button variant="primary">
+                <Download className="h-4 w-4 mr-2" />
+                Download decian-agent.exe
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 border-t border-gray-200 bg-gray-50">
+          <div className="flex justify-end space-x-3">
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ onDownloadClick }: { onDownloadClick: () => void }) {
   return (
     <Card className="border-dashed border-2 border-gray-300">
       <CardContent className="p-12">
@@ -137,7 +280,7 @@ function EmptyState() {
             </p>
           </div>
           <div className="space-x-3">
-            <Button variant="primary">
+            <Button variant="primary" onClick={onDownloadClick}>
               <Download className="h-4 w-4 mr-2" />
               Download Agent
             </Button>
@@ -151,6 +294,23 @@ function EmptyState() {
 
 export default function AgentsPage() {
   const { agents, isLoading, error, createAgent, updateAgent, deleteAgent } = useAgents();
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadData, setDownloadData] = useState<AgentDownloadResponse | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadClick = async () => {
+    setIsDownloading(true);
+    try {
+      const data = await agentApi.download();
+      setDownloadData(data);
+      setShowDownloadModal(true);
+    } catch (error) {
+      console.error('Failed to get download data:', error);
+      // You might want to show an error toast here
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   if (error) {
     return (
@@ -184,8 +344,16 @@ export default function AgentsPage() {
               <Activity className="h-4 w-4 mr-2" />
               Refresh Status
             </Button>
-            <Button variant="primary">
-              <Download className="h-4 w-4 mr-2" />
+            <Button
+              variant="primary"
+              onClick={handleDownloadClick}
+              disabled={isDownloading}
+            >
+              {isDownloading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
               Download Agent
             </Button>
           </div>
@@ -254,7 +422,7 @@ export default function AgentsPage() {
         {isLoading ? (
           <LoadingSkeleton />
         ) : agents.length === 0 ? (
-          <EmptyState />
+          <EmptyState onDownloadClick={handleDownloadClick} />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {agents.map((agent) => (
@@ -262,6 +430,13 @@ export default function AgentsPage() {
             ))}
           </div>
         )}
+
+        {/* Download Modal */}
+        <DownloadModal
+          isOpen={showDownloadModal}
+          onClose={() => setShowDownloadModal(false)}
+          downloadData={downloadData}
+        />
       </div>
     </ProtectedRoute>
   );

@@ -8,6 +8,7 @@ import {
   deleteAgent,
   agentHeartbeat,
   getAgentStats,
+  downloadAgent,
 } from '@/controllers/agentController';
 import { UserRole } from '@prisma/client';
 
@@ -15,6 +16,13 @@ const router = Router();
 
 // All agent routes require authentication
 router.use(authenticate);
+
+/**
+ * @route   GET /api/agents/download
+ * @desc    Download agent executable with configuration
+ * @access  Private (USER+)
+ */
+router.get('/download', requireRole(UserRole.USER), downloadAgent);
 
 /**
  * @route   POST /api/agents/register

@@ -5,6 +5,7 @@ import { RiskIndicator, RiskProgressBar } from '@/components/ui/RiskIndicator';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { Shield, Activity, FileText, AlertTriangle, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 function LoadingSkeleton() {
   return (
@@ -43,6 +44,7 @@ function ErrorState({ error }: { error: string }) {
 
 export default function Home() {
   const { agentStats, assessmentStats, recentAssessments, isLoading, error } = useDashboardData();
+  const router = useRouter();
 
   if (error) {
     return (
@@ -192,7 +194,12 @@ export default function Home() {
         <CardContent>
           <div className="flex flex-wrap gap-4">
             <Button variant="primary">Run New Assessment</Button>
-            <Button variant="secondary">Download Agent</Button>
+            <Button
+              variant="secondary"
+              onClick={() => router.push('/agents')}
+            >
+              Download Agent
+            </Button>
             <Button variant="outline">Generate Report</Button>
             <Button variant="ghost">View All Assessments</Button>
           </div>

@@ -4,6 +4,8 @@ import { prisma } from '@/utils/database';
 import { AppError, catchAsync } from '@/middleware/errorHandler';
 import { logger } from '@/utils/logger';
 import { z } from 'zod';
+import path from 'path';
+import fs from 'fs';
 
 // Validation schemas
 const AgentRegistrationSchema = z.object({
@@ -325,4 +327,157 @@ export const getAgentStats = catchAsync(async (req: Request, res: Response) => {
       statusCounts,
     },
   });
+});
+
+/**
+ * Download agent executable
+ * GET /api/agents/download
+ */
+export const downloadAgent = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+  const organizationId = req.user!.organizationId;
+
+  // Generate agent configuration for the organization
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { id: true, name: true, settings: true }
+  });
+
+  if (!organization) {
+    return next(new AppError('Organization not found', 404));
+  }
+
+  // Check if pre-built agent exists
+  const agentPath = path.join(process.cwd(), 'agents', 'decian-agent.exe');
+
+  if (fs.existsSync(agentPath)) {
+    // Serve the pre-built agent
+    logger.info(`Agent download requested for organization: ${organizationId}`);
+
+    res.setHeader('Content-Disposition', 'attachment; filename="decian-agent.exe"');
+    res.setHeader('Content-Type', 'application/octet-stream');
+
+    const fileStream = fs.createReadStream(agentPath);
+    fileStream.pipe(res);
+
+    fileStream.on('error', (error) => {
+      logger.error('Error streaming agent file', { error: error.message });
+      return next(new AppError('Failed to download agent', 500));
+    });
+
+    fileStream.on('end', () => {
+      logger.info(`Agent downloaded successfully for organization: ${organizationId}`);
+    });
+  } else {
+    // Agent not built yet, provide instructions and configuration
+    const agentConfig = {
+      dashboardUrl: process.env.DASHBOARD_URL || 'https://localhost:3001',
+      organizationId: organization.id,
+      organizationName: organization.name,
+      modules: [
+        'MISCONFIGURATION_DISCOVERY',
+        'WEAK_PASSWORD_DETECTION',
+        'DATA_EXPOSURE_CHECK',
+        'PHISHING_EXPOSURE_INDICATORS',
+        'PATCH_UPDATE_STATUS',
+        'ELEVATED_PERMISSIONS_REPORT',
+        'EXCESSIVE_SHARING_RISKS',
+        'PASSWORD_POLICY_WEAKNESS',
+        'OPEN_SERVICE_PORT_ID',
+        'USER_BEHAVIOR_RISK_SIGNALS'
+      ],
+      settings: organization.settings || {}
+    };
+
+    const configYaml = `# Decian Security Agent Configuration
+# Organization: ${organization.name}
+
+dashboard:
+  url: "${agentConfig.dashboardUrl}"
+  organization_id: "${agentConfig.organizationId}"
+
+agent:
+  version: "2.0.0"
+  timeout: 300
+  log_level: "INFO"
+
+modules:
+${agentConfig.modules.map(module => `  - "${module}"`).join('\n')}
+
+# Security Configuration
+security:
+  tls_version: "1.3"
+  certificate_pinning: true
+  encryption: true
+  hmac_validation: true
+
+# Advanced Settings
+settings:
+  retry_attempts: 3
+  retry_delay: "5s"
+  heartbeat_interval: "60s"
+`;
+
+    const instructions = `# Decian Security Agent Setup Instructions
+
+## Prerequisites
+- Windows 10/11 or Windows Server 2016+
+- Administrator privileges for full security assessment
+- Network access to dashboard: ${agentConfig.dashboardUrl}
+
+## Installation Steps
+
+1. **Download Go** (if building from source):
+   - Download from: https://golang.org/download/
+   - Install with default settings
+
+2. **Download Agent Source**:
+   - Clone or download the agent source code
+   - Extract to a folder (e.g., C:\\decian-agent)
+
+3. **Build Agent**:
+   \`\`\`powershell
+   cd C:\\decian-agent
+   go build -o decian-agent.exe
+   \`\`\`
+
+4. **Configure Agent**:
+   - Save the configuration below as \`.decian-agent.yaml\`
+   - Place in the same directory as decian-agent.exe
+
+5. **Register Agent**:
+   \`\`\`powershell
+   .\\decian-agent.exe register
+   \`\`\`
+
+6. **Run Assessment**:
+   \`\`\`powershell
+   .\\decian-agent.exe run
+   \`\`\`
+
+## Security Features
+- ✅ TLS 1.3 encryption
+- ✅ Certificate pinning
+- ✅ End-to-end payload encryption
+- ✅ HMAC authentication
+- ✅ Zero PowerShell dependencies
+- ✅ Pure Go implementation
+
+## Available Modules
+${agentConfig.modules.map((module, index) => `${index + 1}. ${module.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}`).join('\n')}
+`;
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Agent not yet built. Please use the provided configuration and instructions.',
+      data: {
+        config: configYaml,
+        instructions: instructions,
+        downloadUrl: null,
+        buildRequired: true,
+        sourceRepository: 'https://github.com/your-org/decian-agent'
+      }
+    });
+
+    logger.info(`Agent configuration provided for organization: ${organizationId}`);
+  }
 });

@@ -42,23 +42,24 @@ const (
 	RiskLevelCritical = "CRITICAL"
 )
 
-// CheckType constants (matching the database enum)
+// CheckType constants (new security-focused modules)
 const (
-	CheckTypeAccountsBypassPassPolicy   = "ACCOUNTS_BYPASS_PASS_POLICY"
-	CheckTypeDCOpenPortsCheck          = "DC_OPEN_PORTS_CHECK"
-	CheckTypeDNSConfigCheck            = "DNS_CONFIG_CHECK"
-	CheckTypeEOLSoftwareCheck          = "EOL_SOFTWARE_CHECK"
-	CheckTypeEnabledInactiveAccounts   = "ENABLED_INACTIVE_ACCOUNTS"
-	CheckTypeNetworkProtocolsCheck     = "NETWORK_PROTOCOLS_CHECK"
-	CheckTypePshellExecPolicyCheck     = "PSHELL_EXEC_POLICY_CHECK"
-	CheckTypeServiceAccountsDomainAdmin = "SERVICE_ACCOUNTS_DOMAIN_ADMIN"
-	CheckTypePrivilegedAccountsNoExpire = "PRIVILEGED_ACCOUNTS_NO_EXPIRE"
-	CheckTypeWinFeatureSecurityCheck   = "WIN_FEATURE_SECURITY_CHECK"
-	CheckTypeWinFirewallStatusCheck    = "WIN_FIREWALL_STATUS_CHECK"
-	CheckTypeWinUpdateCheck            = "WIN_UPDATE_CHECK"
-	CheckTypePasswordCrack             = "PASSWORD_CRACK"
-	CheckTypeKerberoastedAccounts      = "KERBEROASTED_ACCOUNTS"
-	CheckTypeSMBSigningCheck           = "SMB_SIGNING_CHECK"
+	CheckTypeMisconfigurationDiscovery    = "MISCONFIGURATION_DISCOVERY"
+	CheckTypeWeakPasswordDetection        = "WEAK_PASSWORD_DETECTION"
+	CheckTypeDataExposureCheck           = "DATA_EXPOSURE_CHECK"
+	CheckTypePhishingExposureIndicators  = "PHISHING_EXPOSURE_INDICATORS"
+	CheckTypePatchUpdateStatus           = "PATCH_UPDATE_STATUS"
+	CheckTypeElevatedPermissionsReport   = "ELEVATED_PERMISSIONS_REPORT"
+	CheckTypeExcessiveSharingRisks       = "EXCESSIVE_SHARING_RISKS"
+	CheckTypePasswordPolicyWeakness      = "PASSWORD_POLICY_WEAKNESS"
+	CheckTypeOpenServicePortID           = "OPEN_SERVICE_PORT_ID"
+	CheckTypeUserBehaviorRiskSignals     = "USER_BEHAVIOR_RISK_SIGNALS"
+
+	// Legacy types (for backward compatibility)
+	CheckTypeWinUpdateCheck              = "WIN_UPDATE_CHECK"
+	CheckTypeWinFirewallStatusCheck      = "WIN_FIREWALL_STATUS_CHECK"
+	CheckTypePshellExecPolicyCheck       = "PSHELL_EXEC_POLICY_CHECK"
+	CheckTypeEOLSoftwareCheck            = "EOL_SOFTWARE_CHECK"
 )
 
 // CalculateRiskScore calculates a risk score based on findings

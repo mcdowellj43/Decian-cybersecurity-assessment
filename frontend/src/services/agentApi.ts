@@ -46,6 +46,14 @@ export interface GetAgentsParams {
   offset?: number;
 }
 
+export interface AgentDownloadResponse {
+  config: string;
+  instructions: string;
+  downloadUrl: string | null;
+  buildRequired: boolean;
+  sourceRepository: string;
+}
+
 export const agentApi = {
   /**
    * Register a new agent
@@ -138,6 +146,46 @@ export const agentApi = {
     try {
       const response = await apiClient.get('/agents/stats');
       return handleApiResponse(response);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  /**
+   * Download agent executable or get setup instructions
+   */
+  download: async (): Promise<AgentDownloadResponse> => {
+    try {
+      const response = await apiClient.get('/agents/download');
+      return handleApiResponse(response);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  /**
+   * Download agent executable as file (for direct file downloads)
+   */
+  downloadFile: async (): Promise<void> => {
+    try {
+      const response = await apiClient.get('/agents/download', {
+        responseType: 'blob',
+      });
+
+      // Check if response contains a blob (actual file)
+      if (response.data instanceof Blob) {
+        const url = window.URL.createObjectURL(response.data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'decian-agent.exe';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else {
+        // If not a blob, it's probably JSON with instructions
+        throw new Error('Agent executable not available. Please check the download instructions.');
+      }
     } catch (error) {
       throw handleApiError(error);
     }

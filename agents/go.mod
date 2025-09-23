@@ -6,6 +6,10 @@ require (
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.2
 	gopkg.in/yaml.v3 v3.0.1
+	golang.org/x/sys v0.15.0
+	golang.org/x/crypto v0.17.0
+	golang.org/x/net v0.19.0
+	github.com/go-ole/go-ole v1.3.0
 )
 
 require (
