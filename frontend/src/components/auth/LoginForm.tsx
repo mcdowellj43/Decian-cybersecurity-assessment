@@ -48,7 +48,7 @@ export function LoginForm() {
         {/* Header */}
         <div className="text-center">
           <div className="flex justify-center">
-            <Shield className="h-12 w-12 text-primary" />
+            <Shield className="h-12 w-12 text-blue-600" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">
             Sign in to your account
@@ -121,11 +121,11 @@ export function LoginForm() {
               <div className="text-center space-y-2">
                 <p className="text-sm text-gray-600">
                   Don&apos;t have an account?{' '}
-                  <Link href="/register" className="text-primary hover:text-primary-700 font-medium">
+                  <Link href="/register" className="text-blue-600 hover:text-blue-700 font-medium">
                     Sign up
                   </Link>
                 </p>
-                <Link href="/forgot-password" className="text-sm text-primary hover:text-primary-700">
+                <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-700">
                   Forgot your password?
                 </Link>
               </div>

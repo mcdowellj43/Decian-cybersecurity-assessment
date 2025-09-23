@@ -6,15 +6,15 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 // Organizations/Tenants
 model Organization {
   id        String   @id @default(cuid())
   name      String
-  settings  Json     @default("{}")
+  settings  String   @default("{}")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -57,7 +57,7 @@ model Agent {
   hostname       String
   version        String
   status         AgentStatus     @default(OFFLINE)
-  configuration  Json            @default("{}")
+  configuration  String          @default("{}")
   lastSeen       DateTime?       @map("last_seen")
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
@@ -84,7 +84,7 @@ model Assessment {
   status         AssessmentStatus  @default(PENDING)
   startTime      DateTime          @map("start_time")
   endTime        DateTime?         @map("end_time")
-  metadata       Json              @default("{}")
+  metadata       String            @default("{}")
   overallRiskScore Float?          @map("overall_risk_score")
   createdAt      DateTime          @default(now()) @map("created_at")
   updatedAt      DateTime          @updatedAt @map("updated_at")
@@ -110,7 +110,7 @@ model AssessmentResult {
   id           String    @id @default(cuid())
   assessmentId String    @map("assessment_id")
   checkType    CheckType @map("check_type")
-  resultData   Json      @map("result_data")
+  resultData   String    @map("result_data")
   riskScore    Float     @map("risk_score")
   riskLevel    RiskLevel @map("risk_level")
   createdAt    DateTime  @default(now()) @map("created_at")
@@ -168,7 +168,7 @@ model AuditLog {
   userId    String?  @map("user_id")
   action    String
   resource  String?
-  details   Json     @default("{}")
+  details   String   @default("{}")
   ipAddress String?  @map("ip_address")
   userAgent String?  @map("user_agent")
   createdAt DateTime @default(now()) @map("created_at")

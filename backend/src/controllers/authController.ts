@@ -37,7 +37,7 @@ export const register = catchAsync(async (req: Request, res: Response, next: Nex
     const organization = await tx.organization.create({
       data: {
         name: organizationName || `${name}'s Organization`,
-        settings: {},
+        settings: "{}",
       },
     });
 

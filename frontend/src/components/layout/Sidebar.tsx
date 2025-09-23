@@ -37,14 +37,14 @@ export function Sidebar() {
         <div className="flex items-center justify-between">
           {!collapsed && (
             <div className="flex items-center">
-              <Shield className="h-8 w-8 text-primary" />
+              <Shield className="h-8 w-8 text-blue-600" />
               <span className="ml-2 text-lg font-semibold text-gray-900">
                 Decian Security
               </span>
             </div>
           )}
           {collapsed && (
-            <Shield className="h-8 w-8 text-primary mx-auto" />
+            <Shield className="h-8 w-8 text-blue-600 mx-auto" />
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
@@ -74,7 +74,7 @@ export function Sidebar() {
                   className={cn(
                     'flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors',
                     isActive
-                      ? 'bg-primary text-white'
+                      ? 'bg-blue-600 text-white'
                       : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900',
                     collapsed && 'justify-center'
                   )}

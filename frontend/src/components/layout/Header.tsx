@@ -24,7 +24,7 @@ export function Header() {
             <input
               type="text"
               placeholder="Search assessments, agents, or reports..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -43,7 +43,7 @@ export function Header() {
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center space-x-2 p-2 text-gray-700 hover:text-gray-900 transition-colors"
             >
-              <div className="h-8 w-8 bg-primary rounded-full flex items-center justify-center">
+              <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center">
                 <span className="text-sm font-medium text-white">
                   {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                 </span>

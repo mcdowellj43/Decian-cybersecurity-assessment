@@ -81,7 +81,7 @@ export function RegisterForm() {
         {/* Header */}
         <div className="text-center">
           <div className="flex justify-center">
-            <Shield className="h-12 w-12 text-primary" />
+            <Shield className="h-12 w-12 text-blue-600" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">
             Create your account
@@ -213,7 +213,7 @@ export function RegisterForm() {
               <div className="text-center">
                 <p className="text-sm text-gray-600">
                   Already have an account?{' '}
-                  <Link href="/login" className="text-primary hover:text-primary-700 font-medium">
+                  <Link href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
                     Sign in
                   </Link>
                 </p>

@@ -13,7 +13,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
     const variantClasses = {
       default: 'border border-gray-200',
       outlined: 'border-2 border-gray-300',
-      elevated: 'shadow-card border border-gray-200',
+      elevated: 'shadow-lg border border-gray-200',
     };
 
     const paddingClasses = {

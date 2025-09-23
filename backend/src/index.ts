@@ -62,6 +62,170 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Registration endpoint directly (temporary fix)
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, name, password, organizationName } = req.body;
+
+    // Basic validation
+    if (!email || !name || !password) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Email, name, and password are required'
+      });
+    }
+
+    // Import prisma and functions here to avoid dependency issues
+    const { prisma } = await import('@/utils/database');
+    const { hashPassword } = await import('@/utils/password');
+    const { generateTokens } = await import('@/utils/jwt');
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'User with this email already exists'
+      });
+    }
+
+    // Hash password
+    const passwordHash = await hashPassword(password);
+
+    // Create organization and user in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Create organization
+      const organization = await tx.organization.create({
+        data: {
+          name: organizationName || `${name}'s Organization`,
+          settings: "{}",
+        },
+      });
+
+      // Create user
+      const user = await tx.user.create({
+        data: {
+          email,
+          name,
+          passwordHash,
+          role: 'ADMIN',
+          organizationId: organization.id,
+        },
+        include: {
+          organization: true,
+        },
+      });
+
+      return { user, organization };
+    });
+
+    // Generate tokens
+    const tokens = generateTokens(result.user.id);
+
+    res.status(201).json({
+      status: 'success',
+      data: {
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          name: result.user.name,
+          role: result.user.role,
+          organization: {
+            id: result.organization.id,
+            name: result.organization.name,
+          },
+        },
+        tokens,
+      },
+    });
+  } catch (error: any) {
+    console.error('Registration error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error during registration'
+    });
+  }
+});
+
+// Login endpoint directly (temporary fix)
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Basic validation
+    if (!email || !password) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Email and password are required'
+      });
+    }
+
+    // Import required functions
+    const { prisma } = await import('@/utils/database');
+    const { comparePassword } = await import('@/utils/password');
+    const { generateTokens } = await import('@/utils/jwt');
+
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        organization: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        status: 'fail',
+        message: 'Invalid email or password'
+      });
+    }
+
+    // Check password
+    const isPasswordValid = await comparePassword(password, user.passwordHash);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        status: 'fail',
+        message: 'Invalid email or password'
+      });
+    }
+
+    // Update last login
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() },
+    });
+
+    // Generate tokens
+    const tokens = generateTokens(user.id);
+
+    res.json({
+      status: 'success',
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          organization: {
+            id: user.organization.id,
+            name: user.organization.name,
+          },
+        },
+        tokens,
+      },
+    });
+  } catch (error: any) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error during login'
+    });
+  }
+});
+
 // API routes
 app.get('/api', (req, res) => {
   res.json({
@@ -79,17 +243,7 @@ app.get('/api', (req, res) => {
   });
 });
 
-// Import routes
-import authRoutes from '@/routes/auth';
-import agentRoutes from '@/routes/agents';
-import assessmentRoutes from '@/routes/assessments';
-import reportRoutes from '@/routes/reports';
-
-// API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/agents', agentRoutes);
-app.use('/api/assessments', assessmentRoutes);
-app.use('/api/reports', reportRoutes);
+// Routes will be imported dynamically in startServer
 
 // Error handling middleware (must be last)
 app.use(notFoundHandler);
@@ -100,9 +254,30 @@ const startServer = async () => {
   try {
     // Connect to database
     await connectDatabase();
+    console.log('About to import routes...');
+
+    // Import routes dynamically
+    const authRoutes = (await import('@/routes/auth')).default;
+    const agentRoutes = (await import('@/routes/agents')).default;
+    const assessmentRoutes = (await import('@/routes/assessments')).default;
+    const reportRoutes = (await import('@/routes/reports')).default;
+
+    console.log('Routes imported, mounting...');
+
+    // Direct routes are already registered above
+
+    // API routes
+    console.log('Mounting auth routes:', typeof authRoutes);
+    app.use('/api/auth', authRoutes);
+    app.use('/api/agents', agentRoutes);
+    app.use('/api/assessments', assessmentRoutes);
+    app.use('/api/reports', reportRoutes);
+
+    console.log('Routes mounted, starting server...');
+    console.log('About to call app.listen on port:', PORT);
 
     // Start HTTP server
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       logger.info(`🚀 Server running on port ${PORT}`);
       logger.info(`📱 Health check: http://localhost:${PORT}/health`);
       logger.info(`🔌 API endpoint: http://localhost:${PORT}/api`);

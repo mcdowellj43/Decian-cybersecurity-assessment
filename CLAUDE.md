@@ -248,7 +248,7 @@ This is a comprehensive cybersecurity risk assessment platform consisting of a c
 
 #### Backend API
 - **Framework**: Node.js/Express with TypeScript
-- **Database**: PostgreSQL with Prisma ORM v6.1.0
+- **Database**: SQLliteSQL with Prisma ORM v6.1.0
 - **Security**: Helmet, CORS, rate limiting, bcryptjs
 - **Logging**: Winston with structured logging
 - **Validation**: Zod schemas + express-validator
@@ -575,7 +575,7 @@ model Assessment {
 ### 🔧 DEVELOPMENT ENVIRONMENT SETUP
 
 #### Required for Next Phase
-1. **PostgreSQL Database**: Local or Docker instance running
+1. **SQL Lite**: Local or Docker instance running
 2. **Environment Variables**: Copy `.env.example` to `.env` with real values
 3. **Go Development**: Go 1.21+ installed for agent development
 4. **Database Migration**: Run `npm run db:push` in backend/
@@ -687,7 +687,7 @@ model Assessment {
   ☒ Configure Tailwind CSS with project color scheme
   ☒ Set up basic component structure and layout
   ☒ Initialize backend Node.js/Express server with TypeScript
-  ☒ Set up PostgreSQL database with Prisma ORM
+  ☒ Set up SQL Lite database with Prisma ORM
   ☒ Implement JWT authentication backend endpoints
   ☒ Create authentication middleware and utilities
   ☒ Build frontend authentication components

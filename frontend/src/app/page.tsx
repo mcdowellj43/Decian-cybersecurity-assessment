@@ -75,7 +75,7 @@ export default function Home() {
         <>
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-gradient-to-r from-blue-50 to-primary-50">
+        <Card className="bg-gradient-to-r from-blue-50 to-blue-100">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -84,7 +84,7 @@ export default function Home() {
                   {agentStats?.recentlyActive || 0}
                 </p>
               </div>
-              <Activity className="h-12 w-12 text-primary" />
+              <Activity className="h-12 w-12 text-blue-600" />
             </div>
           </CardContent>
         </Card>
