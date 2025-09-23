@@ -6,6 +6,7 @@ import { logger } from '@/utils/logger';
 import { z } from 'zod';
 import path from 'path';
 import fs from 'fs';
+import { execSync } from 'child_process';
 
 // Validation schemas
 const AgentRegistrationSchema = z.object({
@@ -330,7 +331,7 @@ export const getAgentStats = catchAsync(async (req: Request, res: Response) => {
 });
 
 /**
- * Download agent executable
+ * Download organization-specific agent executable
  * GET /api/agents/download
  */
 export const downloadAgent = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
@@ -346,15 +347,24 @@ export const downloadAgent = catchAsync(async (req: Request, res: Response, next
     return next(new AppError('Organization not found', 404));
   }
 
-  // Check if pre-built agent exists
-  const agentPath = path.join(process.cwd(), 'agents', 'decian-agent.exe');
+  // Check for organization-specific pre-built agent
+  const agentFileName = `decian-agent-${organizationId}.exe`;
+  const agentsDir = path.join(process.cwd(), '..', 'agents', 'dist');
+  const agentPath = path.join(agentsDir, agentFileName);
+
+  logger.info(`Agent download requested for organization: ${organizationId}`);
+  logger.info(`Process working directory: ${process.cwd()}`);
+  logger.info(`Agents directory: ${agentsDir}`);
+  logger.info(`Looking for pre-built agent at: ${agentPath}`);
+  logger.info(`File exists check: ${fs.existsSync(agentPath)}`);
 
   if (fs.existsSync(agentPath)) {
-    // Serve the pre-built agent
-    logger.info(`Agent download requested for organization: ${organizationId}`);
+    // Serve the pre-built organization-specific agent
+    logger.info(`Serving pre-built agent for organization: ${organizationId}`);
 
-    res.setHeader('Content-Disposition', 'attachment; filename="decian-agent.exe"');
+    res.setHeader('Content-Disposition', `attachment; filename="${agentFileName}"`);
     res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Length', fs.statSync(agentPath).size.toString());
 
     const fileStream = fs.createReadStream(agentPath);
     fileStream.pipe(res);
@@ -368,27 +378,144 @@ export const downloadAgent = catchAsync(async (req: Request, res: Response, next
       logger.info(`Agent downloaded successfully for organization: ${organizationId}`);
     });
   } else {
-    // Agent not built yet, provide instructions and configuration
-    const agentConfig = {
-      dashboardUrl: process.env.DASHBOARD_URL || 'https://localhost:3001',
-      organizationId: organization.id,
-      organizationName: organization.name,
-      modules: [
-        'MISCONFIGURATION_DISCOVERY',
-        'WEAK_PASSWORD_DETECTION',
-        'DATA_EXPOSURE_CHECK',
-        'PHISHING_EXPOSURE_INDICATORS',
-        'PATCH_UPDATE_STATUS',
-        'ELEVATED_PERMISSIONS_REPORT',
-        'EXCESSIVE_SHARING_RISKS',
-        'PASSWORD_POLICY_WEAKNESS',
-        'OPEN_SERVICE_PORT_ID',
-        'USER_BEHAVIOR_RISK_SIGNALS'
-      ],
-      settings: organization.settings || {}
-    };
+    // No pre-built agent exists, build one on-demand
+    logger.info(`No pre-built agent found, building on-demand for organization: ${organizationId}`);
 
-    const configYaml = `# Decian Security Agent Configuration
+    try {
+      const built = await buildAgentForOrganization(organization);
+
+      if (built && fs.existsSync(agentPath)) {
+        // Agent was built successfully, serve it
+        logger.info(`Agent built successfully, serving for organization: ${organizationId}`);
+
+        res.setHeader('Content-Disposition', `attachment; filename="${agentFileName}"`);
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Content-Length', fs.statSync(agentPath).size.toString());
+
+        const fileStream = fs.createReadStream(agentPath);
+        fileStream.pipe(res);
+
+        fileStream.on('error', (error) => {
+          logger.error('Error streaming built agent file', { error: error.message });
+          return next(new AppError('Failed to download agent', 500));
+        });
+
+        fileStream.on('end', () => {
+          logger.info(`Built agent downloaded successfully for organization: ${organizationId}`);
+        });
+      } else {
+        // Build failed, fall back to providing configuration and instructions
+        logger.warn(`Agent build failed for organization: ${organizationId}, providing fallback instructions`);
+        return provideFallbackInstructions(organization, res);
+      }
+    } catch (error) {
+      logger.error('Error building agent', {
+        organizationId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return provideFallbackInstructions(organization, res);
+    }
+  }
+});
+
+/**
+ * Build agent executable for a specific organization
+ */
+async function buildAgentForOrganization(organization: { id: string; name: string; settings: any }): Promise<boolean> {
+  const organizationId = organization.id;
+  const dashboardUrl = process.env.DASHBOARD_URL || 'https://localhost:3001';
+
+  try {
+    logger.info(`Building agent for organization: ${organizationId}`);
+
+    // Ensure dist directory exists
+    const agentsDir = path.join(process.cwd(), '..', 'agents');
+    const distDir = path.join(agentsDir, 'dist');
+    const scriptsDir = path.join(agentsDir, 'scripts');
+
+    if (!fs.existsSync(distDir)) {
+      fs.mkdirSync(distDir, { recursive: true });
+    }
+
+    // Use PowerShell script on Windows, bash script on others
+    const isWindows = process.platform === 'win32';
+    const buildScript = isWindows ? 'build-agent.ps1' : 'build-agent.sh';
+    const buildScriptPath = path.join(scriptsDir, buildScript);
+
+    if (!fs.existsSync(buildScriptPath)) {
+      logger.error(`Build script not found: ${buildScriptPath}`);
+      return false;
+    }
+
+    // Build command
+    let buildCommand: string;
+    if (isWindows) {
+      buildCommand = `powershell.exe -ExecutionPolicy Bypass -File "${buildScriptPath}" -OrgId "${organizationId}" -DashboardUrl "${dashboardUrl}" -OutputDir "dist"`;
+    } else {
+      buildCommand = `bash "${buildScriptPath}" --org-id "${organizationId}" --dashboard-url "${dashboardUrl}" --output-dir "dist"`;
+    }
+
+    logger.info(`Executing build command: ${buildCommand}`);
+
+    // Change to agents directory and execute build
+    const originalCwd = process.cwd();
+    process.chdir(agentsDir);
+
+    try {
+      // Execute build with timeout (5 minutes)
+      execSync(buildCommand, {
+        timeout: 5 * 60 * 1000,
+        stdio: 'pipe',
+        encoding: 'utf8'
+      });
+
+      logger.info(`Agent built successfully for organization: ${organizationId}`);
+      return true;
+
+    } catch (error: any) {
+      logger.error(`Build command failed for organization ${organizationId}:`, {
+        command: buildCommand,
+        error: error.message,
+        stdout: error.stdout,
+        stderr: error.stderr
+      });
+      return false;
+    } finally {
+      process.chdir(originalCwd);
+    }
+
+  } catch (error) {
+    logger.error(`Error building agent for organization ${organizationId}:`, {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    return false;
+  }
+}
+
+/**
+ * Provide fallback instructions when agent build fails
+ */
+function provideFallbackInstructions(organization: { id: string; name: string; settings: any }, res: Response) {
+  const agentConfig = {
+    dashboardUrl: process.env.DASHBOARD_URL || 'https://localhost:3001',
+    organizationId: organization.id,
+    organizationName: organization.name,
+    modules: [
+      'MISCONFIGURATION_DISCOVERY',
+      'WEAK_PASSWORD_DETECTION',
+      'DATA_EXPOSURE_CHECK',
+      'PHISHING_EXPOSURE_INDICATORS',
+      'PATCH_UPDATE_STATUS',
+      'ELEVATED_PERMISSIONS_REPORT',
+      'EXCESSIVE_SHARING_RISKS',
+      'PASSWORD_POLICY_WEAKNESS',
+      'OPEN_SERVICE_PORT_ID',
+      'USER_BEHAVIOR_RISK_SIGNALS'
+    ],
+    settings: organization.settings || {}
+  };
+
+  const configYaml = `# Decian Security Agent Configuration
 # Organization: ${organization.name}
 
 dashboard:
@@ -403,81 +530,62 @@ agent:
 modules:
 ${agentConfig.modules.map(module => `  - "${module}"`).join('\n')}
 
-# Security Configuration
 security:
   tls_version: "1.3"
   certificate_pinning: true
   encryption: true
   hmac_validation: true
 
-# Advanced Settings
 settings:
   retry_attempts: 3
   retry_delay: "5s"
   heartbeat_interval: "60s"
 `;
 
-    const instructions = `# Decian Security Agent Setup Instructions
+  const instructions = `# Decian Security Agent Setup Instructions
 
-## Prerequisites
-- Windows 10/11 or Windows Server 2016+
-- Administrator privileges for full security assessment
-- Network access to dashboard: ${agentConfig.dashboardUrl}
+## Automatic Setup (Recommended)
+The agent executable should contain embedded configuration for automatic setup.
 
-## Installation Steps
+1. **Download the Agent**:
+   - Download: decian-agent-${organization.id}.exe
 
-1. **Download Go** (if building from source):
-   - Download from: https://golang.org/download/
-   - Install with default settings
-
-2. **Download Agent Source**:
-   - Clone or download the agent source code
-   - Extract to a folder (e.g., C:\\decian-agent)
-
-3. **Build Agent**:
+2. **Run Setup**:
    \`\`\`powershell
-   cd C:\\decian-agent
-   go build -o decian-agent.exe
+   .\\decian-agent-${organization.id}.exe setup
    \`\`\`
 
-4. **Configure Agent**:
-   - Save the configuration below as \`.decian-agent.yaml\`
-   - Place in the same directory as decian-agent.exe
-
-5. **Register Agent**:
+3. **Run Assessment**:
    \`\`\`powershell
-   .\\decian-agent.exe register
+   .\\decian-agent-${organization.id}.exe run
    \`\`\`
 
-6. **Run Assessment**:
-   \`\`\`powershell
-   .\\decian-agent.exe run
-   \`\`\`
+## Manual Setup (If automatic fails)
+If the automatic setup fails, you can build manually:
 
-## Security Features
-- ✅ TLS 1.3 encryption
-- ✅ Certificate pinning
-- ✅ End-to-end payload encryption
-- ✅ HMAC authentication
-- ✅ Zero PowerShell dependencies
-- ✅ Pure Go implementation
+1. **Download Go**: https://golang.org/download/
+2. **Download Source**: Clone the agent repository
+3. **Save Config**: Save the configuration below as \`.decian-agent.yaml\`
+4. **Build**: \`go build -o decian-agent.exe\`
+5. **Register**: \`./decian-agent.exe register\`
+6. **Run**: \`./decian-agent.exe run\`
 
-## Available Modules
+## Available Security Modules
 ${agentConfig.modules.map((module, index) => `${index + 1}. ${module.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}`).join('\n')}
 `;
 
-    res.status(200).json({
-      status: 'success',
-      message: 'Agent not yet built. Please use the provided configuration and instructions.',
-      data: {
-        config: configYaml,
-        instructions: instructions,
-        downloadUrl: null,
-        buildRequired: true,
-        sourceRepository: 'https://github.com/your-org/decian-agent'
-      }
-    });
+  res.status(200).json({
+    status: 'success',
+    message: 'Agent build failed. Please use the manual build instructions below.',
+    data: {
+      config: configYaml,
+      instructions: instructions,
+      downloadUrl: null,
+      buildRequired: true,
+      organizationId: organization.id,
+      agentFileName: `decian-agent-${organization.id}.exe`
+    }
+  });
 
-    logger.info(`Agent configuration provided for organization: ${organizationId}`);
-  }
-});
+  logger.info(`Agent configuration provided for organization: ${organization.id}`);
+}

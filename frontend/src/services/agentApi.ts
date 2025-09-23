@@ -51,7 +51,9 @@ export interface AgentDownloadResponse {
   instructions: string;
   downloadUrl: string | null;
   buildRequired: boolean;
-  sourceRepository: string;
+  organizationId?: string;
+  agentFileName?: string;
+  sourceRepository?: string;
 }
 
 export const agentApi = {

@@ -1,6 +1,67 @@
-# Decian Security Assessment Agent
+# Decian Security Agent
 
-A Windows security assessment agent that performs automated security checks and reports results to the Decian dashboard.
+This is the Go-based security assessment agent for the Decian Cybersecurity Assessment Platform with **embedded configuration** and **automatic setup** capabilities.
+
+## Quick Start (End Users)
+
+1. **Download**: Get `decian-agent-{your-org}.exe` from your administrator
+2. **Setup**: Run `.\decian-agent-{your-org}.exe setup`
+3. **Assess**: Run `.\decian-agent-{your-org}.exe run`
+4. **View Results**: Check results in your dashboard
+
+## Building Organization-Specific Agents (Administrators)
+
+### Prerequisites
+
+1. **Go 1.21+**: Download from [golang.org](https://golang.org/download/)
+2. **Git**: For cloning the repository
+3. **Windows**: The agent targets Windows systems
+
+### Building an Agent
+
+#### Using PowerShell (Windows)
+```powershell
+cd agents
+.\scripts\build-agent.ps1 -OrgId "your-org-id" -DashboardUrl "https://your-dashboard.com"
+```
+
+#### Using Bash (Linux/macOS/WSL)
+```bash
+cd agents
+./scripts/build-agent.sh --org-id "your-org-id" --dashboard-url "https://your-dashboard.com"
+```
+
+### Build Output
+
+The build process will:
+
+1. **Generate Configuration**: Create organization-specific YAML config
+2. **Embed Configuration**: Embed the config into the executable at build time
+3. **Build Executable**: Compile to `dist/decian-agent-{org-id}.exe`
+4. **Provide Instructions**: Show distribution instructions
+
+## Agent Commands
+
+### Setup Command (New - Recommended)
+```powershell
+.\decian-agent-{org-id}.exe setup
+```
+- Interactive setup wizard
+- Automatically connects to dashboard using embedded configuration
+- No manual configuration required
+- Registers agent automatically
+
+### Legacy Commands (Still supported)
+```powershell
+# Register manually
+.\decian-agent.exe register --dashboard https://dashboard.com --token your-token
+
+# Run assessment
+.\decian-agent.exe run
+
+# Check status
+.\decian-agent.exe status
+```
 
 ## Features
 

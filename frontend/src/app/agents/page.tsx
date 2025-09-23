@@ -151,6 +151,55 @@ function DownloadModal({
     window.URL.revokeObjectURL(url);
   };
 
+  const downloadAgentExecutable = async () => {
+    try {
+      // Call the download endpoint to get the actual file
+      const response = await fetch('/api/agents/download', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
+
+      // Check if response is JSON (fallback instructions) or binary (actual file)
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        // If we get JSON, it means the build failed or instructions are being provided
+        const data = await response.json();
+        console.error('Expected file download but got instructions:', data);
+        alert('Agent file not ready. Please use the manual build instructions below.');
+        return;
+      }
+
+      // Get the filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = 'decian-agent.exe';
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // Download the file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert('Download failed. Please try again or use the manual build instructions.');
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
   };
@@ -247,9 +296,9 @@ function DownloadModal({
               <p className="text-gray-600 mb-4">
                 Your pre-built agent is ready to download and deploy.
               </p>
-              <Button variant="primary">
+              <Button variant="primary" onClick={downloadAgentExecutable}>
                 <Download className="h-4 w-4 mr-2" />
-                Download decian-agent.exe
+                Download {downloadData.agentFileName || 'decian-agent.exe'}
               </Button>
             </div>
           )}
@@ -301,12 +350,66 @@ export default function AgentsPage() {
   const handleDownloadClick = async () => {
     setIsDownloading(true);
     try {
-      const data = await agentApi.download();
-      setDownloadData(data);
-      setShowDownloadModal(true);
+      // Get the auth token in the same way apiClient does
+      let authToken = '';
+      if (typeof window !== 'undefined') {
+        const authStorage = localStorage.getItem('auth-storage');
+        if (authStorage) {
+          try {
+            const { state } = JSON.parse(authStorage);
+            if (state?.tokens?.accessToken) {
+              authToken = state.tokens.accessToken;
+            }
+          } catch (error) {
+            console.error('Error parsing auth storage:', error);
+          }
+        }
+      }
+
+      // Use the proper API base URL (port 3001)
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${API_BASE_URL}/api/agents/download`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
+
+      // Check if response is JSON (instructions) or binary (file)
+      const contentType = response.headers.get('content-type');
+
+      if (contentType && contentType.includes('application/json')) {
+        // If JSON, show the modal with instructions
+        const data = await response.json();
+        setDownloadData(data.data); // Extract the data object
+        setShowDownloadModal(true);
+      } else {
+        // If binary file, download directly
+        const contentDisposition = response.headers.get('content-disposition');
+        let filename = 'decian-agent.exe';
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+          if (filenameMatch) {
+            filename = filenameMatch[1];
+          }
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }
     } catch (error) {
-      console.error('Failed to get download data:', error);
-      // You might want to show an error toast here
+      console.error('Failed to download agent:', error);
+      alert('Download failed. Please try again.');
     } finally {
       setIsDownloading(false);
     }
