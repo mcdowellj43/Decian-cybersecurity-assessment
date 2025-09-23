@@ -14,7 +14,14 @@ import { UserRole } from '@prisma/client';
 
 const router = Router();
 
-// All agent routes require authentication
+/**
+ * @route   POST /api/agents/register
+ * @desc    Agent self-registration (unauthenticated)
+ * @access  Public (Agents with embedded organization ID)
+ */
+router.post('/register', registerAgent);
+
+// All other agent routes require authentication
 router.use(authenticate);
 
 /**
@@ -24,12 +31,6 @@ router.use(authenticate);
  */
 router.get('/download', requireRole(UserRole.USER), downloadAgent);
 
-/**
- * @route   POST /api/agents/register
- * @desc    Register a new agent
- * @access  Private (USER+)
- */
-router.post('/register', requireRole(UserRole.USER), registerAgent);
 
 /**
  * @route   GET /api/agents/stats

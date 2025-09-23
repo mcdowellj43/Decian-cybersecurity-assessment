@@ -3,13 +3,10 @@ package modules
 import (
 	"decian-agent/internal/logger"
 	"fmt"
-	"net"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
-	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
 

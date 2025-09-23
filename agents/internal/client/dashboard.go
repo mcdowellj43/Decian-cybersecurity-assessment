@@ -55,11 +55,12 @@ func NewDashboardClient(baseURL, token string, logger *logger.Logger) *Dashboard
 }
 
 // RegisterAgent registers the agent with the dashboard
-func (c *DashboardClient) RegisterAgent(hostname, version string, config map[string]interface{}) (*Agent, error) {
+func (c *DashboardClient) RegisterAgent(organizationId, hostname, version string, config map[string]interface{}) (*Agent, error) {
 	payload := map[string]interface{}{
-		"hostname":      hostname,
-		"version":       version,
-		"configuration": config,
+		"organizationId": organizationId,
+		"hostname":       hostname,
+		"version":        version,
+		"configuration":  config,
 	}
 
 	var response struct {

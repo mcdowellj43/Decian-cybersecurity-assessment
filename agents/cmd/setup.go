@@ -133,7 +133,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 		"registered_at": time.Now().UTC(),
 	}
 
-	agent, err := dashboardClient.RegisterAgent(hostname, embeddedCfg.Agent.Version, agentConfig)
+	agent, err := dashboardClient.RegisterAgent(embeddedCfg.Dashboard.OrganizationID, hostname, embeddedCfg.Agent.Version, agentConfig)
 	if err != nil {
 		fmt.Printf("❌ FAILED: %v\n", err)
 		fmt.Println()

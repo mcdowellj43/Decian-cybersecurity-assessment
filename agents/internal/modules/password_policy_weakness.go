@@ -4,6 +4,7 @@ import (
 	"decian-agent/internal/logger"
 	"fmt"
 	"runtime"
+	"strings"
 	"time"
 
 	"golang.org/x/sys/windows/registry"

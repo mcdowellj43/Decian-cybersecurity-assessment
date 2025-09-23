@@ -10,6 +10,7 @@ import { execSync } from 'child_process';
 
 // Validation schemas
 const AgentRegistrationSchema = z.object({
+  organizationId: z.string().min(1, 'Organization ID is required'),
   hostname: z.string().min(1, 'Hostname is required').max(255),
   version: z.string().min(1, 'Version is required').max(50),
   configuration: z.record(z.any()).optional().default({}),
@@ -30,8 +31,16 @@ const HeartbeatSchema = z.object({
  * POST /api/agents/register
  */
 export const registerAgent = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-  const { hostname, version, configuration } = AgentRegistrationSchema.parse(req.body);
-  const organizationId = req.user!.organizationId;
+  const { organizationId, hostname, version, configuration } = AgentRegistrationSchema.parse(req.body);
+
+  // Verify organization exists
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId }
+  });
+
+  if (!organization) {
+    throw new AppError('Organization not found', 404);
+  }
 
   // Check if agent with this hostname already exists for the organization
   const existingAgent = await prisma.agent.findUnique({
@@ -49,7 +58,7 @@ export const registerAgent = catchAsync(async (req: Request, res: Response, next
       where: { id: existingAgent.id },
       data: {
         version,
-        configuration,
+        configuration: JSON.stringify(configuration),
         status: AgentStatus.ONLINE,
         lastSeen: new Date(),
       },
@@ -70,7 +79,7 @@ export const registerAgent = catchAsync(async (req: Request, res: Response, next
       organizationId,
       hostname,
       version,
-      configuration,
+      configuration: JSON.stringify(configuration),
       status: AgentStatus.ONLINE,
       lastSeen: new Date(),
     },

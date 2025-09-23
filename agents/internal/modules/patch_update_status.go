@@ -262,7 +262,7 @@ func (m *PatchUpdateStatusModule) checkThirdPartySoftwareUpdates() ([]string, fl
 	var risk float64
 
 	// Common software to check for updates
-	commonSoftware := map[string]string{
+	_ = map[string]string{
 		"Adobe Flash Player":     `SOFTWARE\\Macromedia\\FlashPlayer`,
 		"Java":                   `SOFTWARE\\JavaSoft\\Java Runtime Environment`,
 		"Adobe Reader":           `SOFTWARE\\Adobe\\Acrobat Reader`,

@@ -6,9 +6,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
-	"unsafe"
 
-	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
 

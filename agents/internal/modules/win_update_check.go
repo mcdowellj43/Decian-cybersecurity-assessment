@@ -4,7 +4,6 @@ import (
 	"decian-agent/internal/logger"
 	"fmt"
 	"os/exec"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"

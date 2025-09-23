@@ -290,7 +290,7 @@ const startServer = async () => {
     console.log('About to call app.listen on port:', PORT);
 
     // Start HTTP server
-    app.listen(PORT, '0.0.0.0', () => {
+    app.listen(PORT, () => {
       logger.info(`🚀 Server running on port ${PORT}`);
       logger.info(`📱 Health check: http://localhost:${PORT}/health`);
       logger.info(`🔌 API endpoint: http://localhost:${PORT}/api`);

@@ -19,8 +19,9 @@ type Config struct {
 		DryRun   bool   `yaml:"dry_run"`
 	} `yaml:"agent"`
 	Dashboard struct {
-		URL     string `yaml:"url"`
-		Timeout int    `yaml:"timeout"`
+		URL            string `yaml:"url"`
+		OrganizationID string `yaml:"organization_id"`
+		Timeout        int    `yaml:"timeout"`
 	} `yaml:"dashboard"`
 	Auth struct {
 		Token string `yaml:"token"`
@@ -51,6 +52,7 @@ func LoadConfig() (*Config, error) {
 	cfg.Agent.DryRun = viper.GetBool("agent.dry_run")
 
 	cfg.Dashboard.URL = viper.GetString("dashboard.url")
+	cfg.Dashboard.OrganizationID = viper.GetString("dashboard.organization_id")
 	cfg.Dashboard.Timeout = viper.GetInt("dashboard.timeout")
 
 	cfg.Auth.Token = viper.GetString("auth.token")

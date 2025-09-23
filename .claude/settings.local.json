@@ -24,7 +24,17 @@
       "Bash(npx prisma studio:*)",
       "Bash(chmod:*)",
       "Bash(where go)",
-      "Bash(powershell.exe:*)"
+      "Bash(powershell.exe:*)",
+      "Bash(PORT=3000 npm run dev)",
+      "Bash(PORT=3001 npm run dev)",
+      "Read(//c/Users/mcdow/Downloads/**)",
+      "Bash(.decian-agent.exe --help)",
+      "Bash(./decian-agent.exe --help)",
+      "Bash(cat:*)",
+      "Bash(./real-agent.exe --help)",
+      "Bash(./real-agent.exe setup)",
+      "Bash(./fixed-agent.exe setup)",
+      "Bash(./final-agent.exe setup)"
     ],
     "deny": [],
     "ask": []

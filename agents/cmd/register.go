@@ -72,7 +72,7 @@ func runRegister(cmd *cobra.Command, args []string) error {
 	dashboardClient := client.NewDashboardClient(cfg.Dashboard.URL, cfg.Auth.Token, log)
 
 	// Register agent
-	agent, err := dashboardClient.RegisterAgent(hostname, version, map[string]interface{}{
+	agent, err := dashboardClient.RegisterAgent(cfg.Dashboard.OrganizationID, hostname, version, map[string]interface{}{
 		"platform":    "windows",
 		"registered":  true,
 	})
