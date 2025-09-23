@@ -123,7 +123,7 @@ app.post('/api/auth/register', async (req, res) => {
     });
 
     // Generate tokens
-    const tokens = generateTokens(result.user.id);
+    const tokens = generateTokens(result.user.id, result.organization.id, result.user.role);
 
     res.status(201).json({
       status: 'success',
@@ -199,7 +199,7 @@ app.post('/api/auth/login', async (req, res) => {
     });
 
     // Generate tokens
-    const tokens = generateTokens(user.id);
+    const tokens = generateTokens(user.id, user.organizationId, user.role);
 
     res.json({
       status: 'success',
@@ -245,9 +245,7 @@ app.get('/api', (req, res) => {
 
 // Routes will be imported dynamically in startServer
 
-// Error handling middleware (must be last)
-app.use(notFoundHandler);
-app.use(errorHandler);
+// Error handling middleware will be added after routes are mounted
 
 // Start server
 const startServer = async () => {
@@ -256,24 +254,39 @@ const startServer = async () => {
     await connectDatabase();
     console.log('About to import routes...');
 
-    // Import routes dynamically
+    // Import routes dynamically with better error handling
     const authRoutes = (await import('@/routes/auth')).default;
-    const agentRoutes = (await import('@/routes/agents')).default;
-    const assessmentRoutes = (await import('@/routes/assessments')).default;
-    const reportRoutes = (await import('@/routes/reports')).default;
+    console.log('Auth routes imported successfully');
 
-    console.log('Routes imported, mounting...');
+    const agentRoutes = (await import('@/routes/agents')).default;
+    console.log('Agent routes imported successfully');
+
+    const assessmentRoutes = (await import('@/routes/assessments')).default;
+    console.log('Assessment routes imported successfully');
+
+    const reportRoutes = (await import('@/routes/reports')).default;
+    console.log('Report routes imported successfully');
+
+    console.log('All routes imported, mounting...');
 
     // Direct routes are already registered above
 
     // API routes
     console.log('Mounting auth routes:', typeof authRoutes);
     app.use('/api/auth', authRoutes);
+    console.log('Mounting agent routes:', typeof agentRoutes);
     app.use('/api/agents', agentRoutes);
+    console.log('Mounting assessment routes:', typeof assessmentRoutes);
     app.use('/api/assessments', assessmentRoutes);
+    console.log('Mounting report routes:', typeof reportRoutes);
     app.use('/api/reports', reportRoutes);
 
-    console.log('Routes mounted, starting server...');
+    console.log('All routes mounted successfully, starting server...');
+
+    // Error handling middleware (must be last)
+    app.use(notFoundHandler);
+    app.use(errorHandler);
+
     console.log('About to call app.listen on port:', PORT);
 
     // Start HTTP server
