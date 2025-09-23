@@ -1,8 +1,8 @@
 ﻿# Decian Security Agent Configuration
-# Organization: cmfwrt2n70000u3agsirhyit2
+# Organization: cmfwwallt0000u3n4aa8hdmc6
 dashboard:
   url: "http://localhost:3001"
-  organization_id: "cmfwrt2n70000u3agsirhyit2"
+  organization_id: "cmfwwallt0000u3n4aa8hdmc6"
 
 agent:
   version: "2.0.0"

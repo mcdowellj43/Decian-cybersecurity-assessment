@@ -63,11 +63,11 @@ export const createAssessment = catchAsync(async (req: Request, res: Response, n
       agentId,
       status: AssessmentStatus.PENDING,
       startTime: new Date(),
-      metadata: {
+      metadata: JSON.stringify({
         ...metadata,
         selectedModules: modules,
         requestedBy: req.user!.id,
-      },
+      }),
     },
     include: {
       agent: {

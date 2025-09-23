@@ -52,7 +52,7 @@ function ErrorState({ error }: { error: string }) {
   );
 }
 
-function AgentCard({ agent }: { agent: any }) {
+function AgentCard({ agent, onConfigure }: { agent: any; onConfigure: (agent: any) => void }) {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'ONLINE':
@@ -114,7 +114,7 @@ function AgentCard({ agent }: { agent: any }) {
           </div>
 
           <div className="flex space-x-2 pt-2">
-            <Button variant="outline" size="sm" className="flex-1">
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => onConfigure(agent)}>
               <Settings className="h-4 w-4 mr-1" />
               Configure
             </Button>
@@ -316,6 +316,126 @@ function DownloadModal({
   );
 }
 
+function ConfigurationModal({
+  isOpen,
+  onClose,
+  agent
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  agent: any;
+}) {
+  if (!isOpen || !agent) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-gray-900">Configure Agent</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Agent Information</h3>
+              <div className="bg-gray-50 border rounded-lg p-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Hostname:</span>
+                  <span className="text-gray-900">{agent.hostname}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Version:</span>
+                  <span className="text-gray-900">{agent.version}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Status:</span>
+                  <span className="text-gray-900">{agent.status}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Last Seen:</span>
+                  <span className="text-gray-900">
+                    {agent.lastSeen
+                      ? new Date(agent.lastSeen).toLocaleString()
+                      : 'Never'
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Security Modules</h3>
+              <div className="bg-gray-50 border rounded-lg p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span>Misconfiguration Discovery</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span>Weak Password Detection</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span>Data Exposure Check</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span>Phishing Exposure Indicators</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span>Patch & Update Status</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span>Elevated Permissions Report</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span>Excessive Sharing Risks</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span>Password Policy Weakness</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span>Open Service/Port ID</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span>User Behavior Risk Signals</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 border-t border-gray-200 bg-gray-50">
+          <div className="flex justify-end space-x-3">
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
+            <Button variant="primary">
+              Save Changes
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EmptyState({ onDownloadClick }: { onDownloadClick: () => void }) {
   return (
     <Card className="border-dashed border-2 border-gray-300">
@@ -346,6 +466,13 @@ export default function AgentsPage() {
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [downloadData, setDownloadData] = useState<AgentDownloadResponse | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<any>(null);
+
+  const handleConfigureAgent = (agent: any) => {
+    setSelectedAgent(agent);
+    setShowConfigModal(true);
+  };
 
   const handleDownloadClick = async () => {
     setIsDownloading(true);
@@ -529,7 +656,7 @@ export default function AgentsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {agents.map((agent) => (
-              <AgentCard key={agent.id} agent={agent} />
+              <AgentCard key={agent.id} agent={agent} onConfigure={handleConfigureAgent} />
             ))}
           </div>
         )}
@@ -539,6 +666,16 @@ export default function AgentsPage() {
           isOpen={showDownloadModal}
           onClose={() => setShowDownloadModal(false)}
           downloadData={downloadData}
+        />
+
+        {/* Configuration Modal */}
+        <ConfigurationModal
+          isOpen={showConfigModal}
+          onClose={() => {
+            setShowConfigModal(false);
+            setSelectedAgent(null);
+          }}
+          agent={selectedAgent}
         />
       </div>
     </ProtectedRoute>

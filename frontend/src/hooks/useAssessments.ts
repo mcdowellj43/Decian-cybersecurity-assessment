@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { assessmentApi, Assessment, GetAssessmentsParams } from '@/services/assessmentApi';
+import { assessmentApi, Assessment, GetAssessmentsParams, CreateAssessmentRequest } from '@/services/assessmentApi';
 
 interface UseAssessmentsResult {
   assessments: Assessment[];
@@ -9,6 +9,8 @@ interface UseAssessmentsResult {
   refetch: () => Promise<void>;
   loadMore: () => Promise<void>;
   hasMore: boolean;
+  createAssessment: (data: CreateAssessmentRequest) => Promise<void>;
+  deleteAssessment: (id: string) => Promise<void>;
 }
 
 export function useAssessments(params: GetAssessmentsParams = {}): UseAssessmentsResult {
@@ -61,6 +63,28 @@ export function useAssessments(params: GetAssessmentsParams = {}): UseAssessment
     }
   };
 
+  const createAssessment = async (data: CreateAssessmentRequest) => {
+    try {
+      setError(null);
+      await assessmentApi.create(data);
+      await refetch(); // Refresh the list after creating
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create assessment');
+      throw err;
+    }
+  };
+
+  const deleteAssessment = async (id: string) => {
+    try {
+      setError(null);
+      await assessmentApi.delete(id);
+      await refetch(); // Refresh the list after deleting
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete assessment');
+      throw err;
+    }
+  };
+
   useEffect(() => {
     fetchAssessments();
   }, [params.status, params.agentId]); // Refetch when filters change
@@ -73,5 +97,7 @@ export function useAssessments(params: GetAssessmentsParams = {}): UseAssessment
     refetch,
     loadMore,
     hasMore,
+    createAssessment,
+    deleteAssessment,
   };
 }

@@ -34,7 +34,12 @@
       "Bash(./real-agent.exe --help)",
       "Bash(./real-agent.exe setup)",
       "Bash(./fixed-agent.exe setup)",
-      "Bash(./final-agent.exe setup)"
+      "Bash(./final-agent.exe setup)",
+      "Bash(./final-agent.exe status)",
+      "Bash(./test-downloaded-agent.exe --help)",
+      "Bash(./test-downloaded-agent.exe setup)",
+      "Read(//c/Users/mcdow/**)",
+      "Bash(./test-fixed-agent.exe:*)"
     ],
     "deny": [],
     "ask": []

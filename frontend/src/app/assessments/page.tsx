@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/Button';
 import { RiskIndicator } from '@/components/ui/RiskIndicator';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAssessments } from '@/hooks/useAssessments';
+import { useAgents } from '@/hooks/useAgents';
+import { useState } from 'react';
 import {
   Shield,
   Play,
@@ -15,7 +17,9 @@ import {
   Filter,
   Download,
   MoreVertical,
-  Loader2
+  Loader2,
+  Server,
+  X
 } from 'lucide-react';
 
 function LoadingSkeleton() {
@@ -154,7 +158,7 @@ function AssessmentCard({ assessment }: { assessment: any }) {
   );
 }
 
-function EmptyState() {
+function EmptyState({ onRunAssessment }: { onRunAssessment: () => void }) {
   return (
     <Card className="border-dashed border-2 border-gray-300">
       <CardContent className="p-12">
@@ -167,7 +171,7 @@ function EmptyState() {
             </p>
           </div>
           <div className="space-x-3">
-            <Button variant="primary">
+            <Button variant="primary" onClick={onRunAssessment}>
               <Play className="h-4 w-4 mr-2" />
               Run Assessment
             </Button>
@@ -179,8 +183,166 @@ function EmptyState() {
   );
 }
 
+function CreateAssessmentModal({
+  isOpen,
+  onClose,
+  agents,
+  onCreateAssessment
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  agents: any[];
+  onCreateAssessment: (agentId: string) => void;
+}) {
+  const [selectedAgentId, setSelectedAgentId] = useState<string>('');
+  const [isCreating, setIsCreating] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAgentId) return;
+
+    setIsCreating(true);
+    try {
+      await onCreateAssessment(selectedAgentId);
+      onClose();
+      setSelectedAgentId('');
+    } catch (error) {
+      console.error('Failed to create assessment:', error);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-md w-full">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-900">Run Security Assessment</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Agent
+            </label>
+            {agents.length === 0 ? (
+              <div className="text-center py-8">
+                <Server className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                <p className="text-gray-600 text-sm">No agents available</p>
+                <p className="text-gray-500 text-xs">Deploy an agent first to run assessments</p>
+              </div>
+            ) : (
+              <select
+                value={selectedAgentId}
+                onChange={(e) => setSelectedAgentId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                <option value="">Choose an agent...</option>
+                {agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.hostname} ({agent.status})
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-medium text-blue-900 mb-2">Assessment Modules</h4>
+            <div className="text-sm text-blue-800 space-y-1">
+              <div>• Accounts Bypass Password Policy</div>
+              <div>• Domain Controller Open Ports Check</div>
+              <div>• DNS Configuration Check</div>
+              <div>• End-of-Life Software Check</div>
+              <div>• Enabled Inactive Accounts</div>
+              <div>• Network Protocols Check</div>
+              <div>• PowerShell Execution Policy Check</div>
+              <div>• Service Accounts Domain Admin</div>
+              <div>• Privileged Accounts No Expire</div>
+              <div>• Windows Feature Security Check</div>
+              <div>• Windows Firewall Status Check</div>
+              <div>• Windows Update Check</div>
+              <div>• Password Crack</div>
+              <div>• Kerberoasted Accounts</div>
+              <div>• SMB Signing Check</div>
+            </div>
+          </div>
+
+          <div className="flex space-x-3 pt-4">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              className="flex-1"
+              disabled={!selectedAgentId || isCreating || agents.length === 0}
+            >
+              {isCreating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Starting...
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  Run Assessment
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function AssessmentsPage() {
   const { assessments, isLoading, error, createAssessment, deleteAssessment } = useAssessments();
+  const { agents } = useAgents();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const handleRunAssessment = () => {
+    setShowCreateModal(true);
+  };
+
+  const handleCreateAssessment = async (agentId: string) => {
+    try {
+      await createAssessment({
+        agentId,
+        modules: [
+          'ACCOUNTS_BYPASS_PASS_POLICY',
+          'DC_OPEN_PORTS_CHECK',
+          'DNS_CONFIG_CHECK',
+          'EOL_SOFTWARE_CHECK',
+          'ENABLED_INACTIVE_ACCOUNTS',
+          'NETWORK_PROTOCOLS_CHECK',
+          'PSHELL_EXEC_POLICY_CHECK',
+          'SERVICE_ACCOUNTS_DOMAIN_ADMIN',
+          'PRIVILEGED_ACCOUNTS_NO_EXPIRE',
+          'WIN_FEATURE_SECURITY_CHECK',
+          'WIN_FIREWALL_STATUS_CHECK',
+          'WIN_UPDATE_CHECK',
+          'PASSWORD_CRACK',
+          'KERBEROASTED_ACCOUNTS',
+          'SMB_SIGNING_CHECK'
+        ]
+      });
+    } catch (error) {
+      throw error;
+    }
+  };
 
   if (error) {
     return (
@@ -218,7 +380,7 @@ export default function AssessmentsPage() {
               <Filter className="h-4 w-4 mr-2" />
               Filter
             </Button>
-            <Button variant="primary">
+            <Button variant="primary" onClick={handleRunAssessment}>
               <Play className="h-4 w-4 mr-2" />
               Run Assessment
             </Button>
@@ -288,7 +450,7 @@ export default function AssessmentsPage() {
         {isLoading ? (
           <LoadingSkeleton />
         ) : assessments.length === 0 ? (
-          <EmptyState />
+          <EmptyState onRunAssessment={handleRunAssessment} />
         ) : (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -305,6 +467,14 @@ export default function AssessmentsPage() {
             </div>
           </div>
         )}
+
+        {/* Create Assessment Modal */}
+        <CreateAssessmentModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          agents={agents}
+          onCreateAssessment={handleCreateAssessment}
+        />
       </div>
     </ProtectedRoute>
   );
