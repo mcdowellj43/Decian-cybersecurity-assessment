@@ -13,11 +13,13 @@ import { isJobsApiEnabled } from '@/config/featureFlags';
 import { signAgentAccessToken } from '@/utils/agentJwt';
 
 // Validation schemas
-const LegacyAgentRegistrationSchema = z.object({
-  organizationId: z.string().min(1, 'Organization ID is required'),
+
+const JobsAgentRegistrationSchema = z.object({
+  orgId: z.string().min(1, 'Organization ID is required'),
   hostname: z.string().min(1, 'Hostname is required').max(255),
-  version: z.string().min(1, 'Version is required').max(50),
-  configuration: z.record(z.any()).optional().default({}),
+  version: z.string().optional(),
+  enrollToken: z.string().min(1, 'Enrollment token is required'),
+  labels: z.record(z.any()).optional().default({}),
 });
 
 const JobsAgentRegistrationSchema = z.object({
@@ -55,135 +57,133 @@ const parseAgentConfiguration = (raw: string | null | undefined): Record<string,
  * Register a new agent for the organization
  * POST /api/agents/register
  */
-export const registerAgent = catchAsync(async (req: Request, res: Response, _next: NextFunction) => {
-  if (isJobsApiEnabled()) {
-    const { orgId, hostname, version, enrollToken, labels } = JobsAgentRegistrationSchema.parse(req.body);
 
-    const organization = await prisma.organization.findUnique({ where: { id: orgId } });
-    if (!organization) {
-      throw new AppError('Organization not found', 404);
-    }
-
-    const enrollmentTokens = await prisma.enrollmentToken.findMany({
-      where: {
-        orgId,
-        usedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    let matchedToken: { id: string } | null = null;
-    for (const token of enrollmentTokens) {
-      const match = await bcrypt.compare(enrollToken, token.tokenHash);
-      if (match) {
-        matchedToken = { id: token.id };
-        break;
-      }
-    }
-
-    if (!matchedToken) {
-      throw new AppError('Invalid or expired enrollment token', 401);
-    }
-
-    await prisma.enrollmentToken.update({
-      where: { id: matchedToken.id },
-      data: { usedAt: new Date() },
-    });
-
-    const agentSecret = crypto.randomBytes(32).toString('hex');
-    const secretHash = await bcrypt.hash(agentSecret, 10);
-    const now = new Date();
-
-    const agent = await prisma.agent.upsert({
-      where: {
-        orgId_hostname: { orgId, hostname },
-      },
-      create: {
-        orgId,
-        hostname,
-        version: version || 'unknown',
-        status: AgentStatus.ONLINE,
-        lastSeenAt: now,
-        secretHash,
-        labels,
-      },
-      update: {
-        version: version || undefined,
-        status: AgentStatus.ONLINE,
-        lastSeenAt: now,
-        secretHash,
-        labels,
-      },
-    });
-
-    logger.info(`Agent ${agent.id} enrolled via jobs API for organization ${orgId}`);
-
-    return res.status(201).json({
-      status: 'success',
-      data: {
-        agentId: agent.id,
-        agentSecret,
-      },
-    });
+export const registerAgent = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+  if (!isJobsApiEnabled()) {
+    return next(new AppError('Jobs API is not enabled', 503));
   }
 
-  const { organizationId, hostname, version, configuration } = LegacyAgentRegistrationSchema.parse(req.body);
+  const { orgId, hostname, version, enrollToken, labels } = JobsAgentRegistrationSchema.parse(req.body);
 
-  const organization = await prisma.organization.findUnique({
-    where: { id: organizationId },
-  });
 
+  const organization = await prisma.organization.findUnique({ where: { id: orgId } });
   if (!organization) {
     throw new AppError('Organization not found', 404);
   }
 
-  const existingAgent = await prisma.agent.findUnique({
+
+  const enrollmentTokens = await prisma.enrollmentToken.findMany({
     where: {
-      orgId_hostname: {
-        orgId: organizationId,
-        hostname,
-      },
+      orgId,
+      usedAt: null,
+      expiresAt: { gt: new Date() },
+
     },
+    orderBy: { createdAt: 'desc' },
   });
 
-  if (existingAgent) {
-    const updatedAgent = await prisma.agent.update({
-      where: { id: existingAgent.id },
-      data: {
-        version,
-        configuration: JSON.stringify(configuration),
-        status: AgentStatus.ONLINE,
-        lastSeenAt: new Date(),
-      },
-    });
 
-    logger.info(`Agent re-registered: ${hostname} for organization: ${organizationId}`);
-
-    return res.status(200).json({
-      status: 'success',
-      message: 'Agent re-registered successfully',
-      data: { agent: updatedAgent },
-    });
+  let matchedToken: { id: string } | null = null;
+  for (const token of enrollmentTokens) {
+    const match = await bcrypt.compare(enrollToken, token.tokenHash);
+    if (match) {
+      matchedToken = { id: token.id };
+      break;
+    }
   }
 
-  const agent = await prisma.agent.create({
-    data: {
-      orgId: organizationId,
+
+  if (!matchedToken) {
+    throw new AppError('Invalid or expired enrollment token', 401);
+  }
+
+
+  await prisma.enrollmentToken.update({
+    where: { id: matchedToken.id },
+    data: { usedAt: new Date() },
+  });
+
+  const agentSecret = crypto.randomBytes(32).toString('hex');
+  const secretHash = await bcrypt.hash(agentSecret, 10);
+  const now = new Date();
+
+  const agent = await prisma.agent.upsert({
+    where: {
+      orgId_hostname: { orgId, hostname },
+    },
+    create: {
+      orgId,
+
       hostname,
-      version,
-      configuration: JSON.stringify(configuration),
+      version: version || 'unknown',
       status: AgentStatus.ONLINE,
-      lastSeenAt: new Date(),
+      lastSeenAt: now,
+      secretHash,
+      labels,
+    },
+    update: {
+      version: version || undefined,
+      status: AgentStatus.ONLINE,
+
+      lastSeenAt: now,
+      secretHash,
+      labels,
+
     },
   });
 
-  logger.info(`New agent registered: ${hostname} for organization: ${organizationId}`);
+  logger.info(`Agent ${agent.id} enrolled via jobs API for organization ${orgId}`);
 
   return res.status(201).json({
     status: 'success',
-    message: 'Agent registered successfully',
-    data: { agent },
+    data: {
+      agentId: agent.id,
+      agentSecret,
+    },
+  });
+});
+
+export const mintAgentToken = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+  if (!isJobsApiEnabled()) {
+    return next(new AppError('Jobs API is not enabled', 503));
+  }
+
+  const { id: agentId } = req.params;
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Basic ')) {
+    throw new AppError('Agent credentials required', 401);
+  }
+
+  const decoded = Buffer.from(authHeader.replace('Basic ', ''), 'base64').toString('utf-8');
+  const [providedId, agentSecret] = decoded.split(':');
+
+  if (!providedId || !agentSecret) {
+    throw new AppError('Invalid agent credentials', 401);
+  }
+
+  if (providedId !== agentId) {
+    throw new AppError('Credential agent mismatch', 401);
+  }
+
+  const agent = await prisma.agent.findUnique({ where: { id: agentId } });
+  if (!agent || !agent.secretHash) {
+    throw new AppError('Agent not found or secret not provisioned', 401);
+  }
+
+  const validSecret = await bcrypt.compare(agentSecret, agent.secretHash);
+  if (!validSecret) {
+    throw new AppError('Invalid agent secret', 401);
+  }
+
+  const { token, expiresIn } = signAgentAccessToken(agent.id, agent.orgId);
+
+  return res.status(200).json({
+    status: 'success',
+    data: {
+      accessToken: token,
+      expiresIn,
+    },
   });
 });
 
@@ -507,62 +507,30 @@ export const downloadAgent = catchAsync(async (req: Request, res: Response, next
   logger.info(`File exists check: ${fs.existsSync(agentPath)}`);
 
   if (fs.existsSync(agentPath)) {
-    // Serve the pre-built organization-specific agent
     logger.info(`Serving pre-built agent for organization: ${organizationId}`);
+    streamAgentFile(agentPath, agentFileName, res, next, organizationId);
+    return;
+  }
 
-    res.setHeader('Content-Disposition', `attachment; filename="${agentFileName}"`);
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Length', fs.statSync(agentPath).size.toString());
+  logger.info(`No pre-built agent found, building on-demand for organization: ${organizationId}`);
 
-    const fileStream = fs.createReadStream(agentPath);
-    fileStream.pipe(res);
+  try {
+    const built = await buildAgentForOrganization(organization);
 
-    fileStream.on('error', (error) => {
-      logger.error('Error streaming agent file', { error: error.message });
-      return next(new AppError('Failed to download agent', 500));
-    });
-
-    fileStream.on('end', () => {
-      logger.info(`Agent downloaded successfully for organization: ${organizationId}`);
-    });
-  } else {
-    // No pre-built agent exists, build one on-demand
-    logger.info(`No pre-built agent found, building on-demand for organization: ${organizationId}`);
-
-    try {
-      const built = await buildAgentForOrganization(organization);
-
-      if (built && fs.existsSync(agentPath)) {
-        // Agent was built successfully, serve it
-        logger.info(`Agent built successfully, serving for organization: ${organizationId}`);
-
-        res.setHeader('Content-Disposition', `attachment; filename="${agentFileName}"`);
-        res.setHeader('Content-Type', 'application/octet-stream');
-        res.setHeader('Content-Length', fs.statSync(agentPath).size.toString());
-
-        const fileStream = fs.createReadStream(agentPath);
-        fileStream.pipe(res);
-
-        fileStream.on('error', (error) => {
-          logger.error('Error streaming built agent file', { error: error.message });
-          return next(new AppError('Failed to download agent', 500));
-        });
-
-        fileStream.on('end', () => {
-          logger.info(`Built agent downloaded successfully for organization: ${organizationId}`);
-        });
-      } else {
-        // Build failed, fall back to providing configuration and instructions
-        logger.warn(`Agent build failed for organization: ${organizationId}, providing fallback instructions`);
-        return provideFallbackInstructions(organization, res);
-      }
-    } catch (error) {
-      logger.error('Error building agent', {
-        organizationId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      return provideFallbackInstructions(organization, res);
+    if (built && fs.existsSync(agentPath)) {
+      logger.info(`Agent built successfully, serving for organization: ${organizationId}`);
+      streamAgentFile(agentPath, agentFileName, res, next, organizationId);
+      return;
     }
+
+    logger.error('Agent build reported success but executable missing', { organizationId });
+    return next(new AppError('Failed to build agent', 500));
+  } catch (error) {
+    logger.error('Error building agent', {
+      organizationId,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    return next(new AppError('Failed to build agent', 500));
   }
 });
 
@@ -640,100 +608,26 @@ async function buildAgentForOrganization(organization: { id: string; name: strin
   }
 }
 
-/**
- * Provide fallback instructions when agent build fails
- */
-function provideFallbackInstructions(organization: { id: string; name: string; settings: any }, res: Response) {
-  const agentConfig = {
-    dashboardUrl: process.env.DASHBOARD_URL || 'https://localhost:3001',
-    organizationId: organization.id,
-    organizationName: organization.name,
-    modules: [
-      'MISCONFIGURATION_DISCOVERY',
-      'WEAK_PASSWORD_DETECTION',
-      'DATA_EXPOSURE_CHECK',
-      'PHISHING_EXPOSURE_INDICATORS',
-      'PATCH_UPDATE_STATUS',
-      'ELEVATED_PERMISSIONS_REPORT',
-      'EXCESSIVE_SHARING_RISKS',
-      'PASSWORD_POLICY_WEAKNESS',
-      'OPEN_SERVICE_PORT_ID',
-      'USER_BEHAVIOR_RISK_SIGNALS'
-    ],
-    settings: organization.settings || {}
-  };
+function streamAgentFile(
+  agentPath: string,
+  agentFileName: string,
+  res: Response,
+  next: NextFunction,
+  organizationId: string
+) {
+  res.setHeader('Content-Disposition', `attachment; filename="${agentFileName}"`);
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.setHeader('Content-Length', fs.statSync(agentPath).size.toString());
 
-  const configYaml = `# Decian Security Agent Configuration
-# Organization: ${organization.name}
+  const fileStream = fs.createReadStream(agentPath);
+  fileStream.pipe(res);
 
-dashboard:
-  url: "${agentConfig.dashboardUrl}"
-  organization_id: "${agentConfig.organizationId}"
-
-agent:
-  version: "2.0.0"
-  timeout: 300
-  log_level: "INFO"
-
-modules:
-${agentConfig.modules.map(module => `  - "${module}"`).join('\n')}
-
-security:
-  tls_version: "1.3"
-  certificate_pinning: true
-  encryption: true
-  hmac_validation: true
-
-settings:
-  retry_attempts: 3
-  retry_delay: "5s"
-  heartbeat_interval: "60s"
-`;
-
-  const instructions = `# Decian Security Agent Setup Instructions
-
-## Automatic Setup (Recommended)
-The agent executable should contain embedded configuration for automatic setup.
-
-1. **Download the Agent**:
-   - Download: decian-agent-${organization.id}.exe
-
-2. **Run Setup**:
-   \`\`\`powershell
-   .\\decian-agent-${organization.id}.exe setup
-   \`\`\`
-
-3. **Run Assessment**:
-   \`\`\`powershell
-   .\\decian-agent-${organization.id}.exe run
-   \`\`\`
-
-## Manual Setup (If automatic fails)
-If the automatic setup fails, you can build manually:
-
-1. **Download Go**: https://golang.org/download/
-2. **Download Source**: Clone the agent repository
-3. **Save Config**: Save the configuration below as \`.decian-agent.yaml\`
-4. **Build**: \`go build -o decian-agent.exe\`
-5. **Register**: \`./decian-agent.exe register\`
-6. **Run**: \`./decian-agent.exe run\`
-
-## Available Security Modules
-${agentConfig.modules.map((module, index) => `${index + 1}. ${module.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}`).join('\n')}
-`;
-
-  res.status(200).json({
-    status: 'success',
-    message: 'Agent build failed. Please use the manual build instructions below.',
-    data: {
-      config: configYaml,
-      instructions: instructions,
-      downloadUrl: null,
-      buildRequired: true,
-      organizationId: organization.id,
-      agentFileName: `decian-agent-${organization.id}.exe`
-    }
+  fileStream.on('error', (error) => {
+    logger.error('Error streaming agent file', { organizationId, error: error.message });
+    next(new AppError('Failed to download agent', 500));
   });
 
-  logger.info(`Agent configuration provided for organization: ${organization.id}`);
+  fileStream.on('end', () => {
+    logger.info(`Agent downloaded successfully for organization: ${organizationId}`);
+  });
 }

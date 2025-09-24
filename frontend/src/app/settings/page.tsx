@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { useAuthStore } from '@/store/auth';
+import { useAuthStore } from '@/store/authStore';
 import {
   User,
   Building,
@@ -106,7 +106,7 @@ export default function SettingsPage() {
                   </label>
                   <Input
                     type="text"
-                    value={user?.organization?.name || ''}
+                    value={user?.organizationName || ''}
                     disabled
                     className="bg-gray-50"
                   />
@@ -186,11 +186,11 @@ export default function SettingsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Organization Name
                 </label>
-                <Input
-                  type="text"
-                  defaultValue={user?.organization?.name || ''}
-                  placeholder="Enter organization name"
-                />
+                  <Input
+                    type="text"
+                    defaultValue={user?.organizationName || ''}
+                    placeholder="Enter organization name"
+                  />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
