@@ -54,12 +54,6 @@ const (
 	CheckTypePasswordPolicyWeakness      = "PASSWORD_POLICY_WEAKNESS"
 	CheckTypeOpenServicePortID           = "OPEN_SERVICE_PORT_ID"
 	CheckTypeUserBehaviorRiskSignals     = "USER_BEHAVIOR_RISK_SIGNALS"
-
-	// Legacy types (for backward compatibility)
-	CheckTypeWinUpdateCheck              = "WIN_UPDATE_CHECK"
-	CheckTypeWinFirewallStatusCheck      = "WIN_FIREWALL_STATUS_CHECK"
-	CheckTypePshellExecPolicyCheck       = "PSHELL_EXEC_POLICY_CHECK"
-	CheckTypeEOLSoftwareCheck            = "EOL_SOFTWARE_CHECK"
 )
 
 // CalculateRiskScore calculates a risk score based on findings

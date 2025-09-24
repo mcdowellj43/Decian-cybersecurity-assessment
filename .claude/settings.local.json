@@ -44,7 +44,16 @@
       "Bash(./decian-agent.exe setup --server \"http://localhost:3001\" --org-id \"cmfy7ihi10000u38kcab8sq4r\" --enroll-token \"8e93ebe18fc51f45dabbce87b2e4d9d6\" --verbose)",
       "Bash(./decian-agent.exe status)",
       "Bash(./decian-agent.exe run --verbose)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(./test-agent.exe setup:*)",
+      "Bash(./test-agent.exe status)",
+      "Bash(./test-agent.exe run --verbose)",
+      "Bash(npx prisma:*)",
+      "Bash(sqlite3:*)",
+      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"yes you can proceed\" npx prisma migrate reset --force)",
+      "Bash(./workflow-test-agent.exe setup --server \"http://localhost:3001\" --org-id \"cmfye680q0000u3cwjw101lyh\" --enroll-token \"fa8957e97656a9a2c19dcfe72d41521f\" --verbose)",
+      "Bash(./workflow-test-agent.exe status:*)",
+      "Bash(./workflow-test-agent.exe run --verbose)"
     ],
     "deny": [],
     "ask": []

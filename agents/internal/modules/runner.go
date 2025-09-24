@@ -135,7 +135,7 @@ func (r *Runner) RunModules(moduleNames []string) ([]AssessmentResult, error) {
 
 	if len(errs) > 0 {
 		r.logger.Warn("Some modules failed", map[string]interface{}{
-			"failed_count":    len(errs),
+			"failed_count":     len(errs),
 			"successful_count": len(results),
 		})
 		// Don't fail the entire assessment if some modules fail
@@ -148,9 +148,9 @@ func (r *Runner) RunModules(moduleNames []string) ([]AssessmentResult, error) {
 	}
 
 	r.logger.Info("Assessment modules completed", map[string]interface{}{
-		"total_modules":    len(moduleNames),
+		"total_modules":      len(moduleNames),
 		"successful_modules": len(results),
-		"failed_modules":   len(errs),
+		"failed_modules":     len(errs),
 	})
 
 	return results, nil
@@ -159,16 +159,6 @@ func (r *Runner) RunModules(moduleNames []string) ([]AssessmentResult, error) {
 // GetAvailableModules returns information about all available modules
 func GetAvailableModules() []ModuleInfo {
 	var modules []ModuleInfo
-
-	// Legacy Windows modules
-	modules = append(modules, ModuleInfo{
-		Name:             "Windows Update Check",
-		Description:      "Checks for missing Windows updates and patch status",
-		CheckType:        CheckTypeWinUpdateCheck,
-		Platform:         "windows",
-		DefaultRiskLevel: RiskLevelMedium,
-		RequiresAdmin:    true,
-	})
 
 	// New security assessment modules
 	modules = append(modules, ModuleInfo{
@@ -266,9 +256,6 @@ func GetAvailableModules() []ModuleInfo {
 
 // registerModules registers all available assessment modules
 func (r *Runner) registerModules() {
-	// Register legacy Windows modules
-	r.modules[CheckTypeWinUpdateCheck] = NewWinUpdateCheckModule(r.logger)
-
 	// Register new security assessment modules
 	r.modules[CheckTypeMisconfigurationDiscovery] = NewMisconfigurationDiscoveryModule(r.logger)
 	r.modules[CheckTypeWeakPasswordDetection] = NewWeakPasswordDetectionModule(r.logger)

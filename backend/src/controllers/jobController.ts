@@ -3,6 +3,7 @@ import { AgentStatus, AssessmentStatus, JobStatus, Prisma } from '@prisma/client
 import { prisma } from '@/utils/database';
 import { AppError, catchAsync } from '@/middleware/errorHandler';
 import { isJobsApiEnabled } from '@/config/featureFlags';
+import { logger } from '@/utils/logger';
 import { z } from 'zod';
 
 const MAX_WAIT_SECONDS = 30;
@@ -224,7 +225,7 @@ const transitionJob = async (
   return res.status(204).end();
 };
 
-const maybeUpdateAssessment = async (job: { payload: unknown }, status: JobStatus) => {
+const maybeUpdateAssessment = async (job: { id: string; payload: unknown }, status: JobStatus) => {
   if (typeof job.payload !== 'object' || job.payload === null) {
     return;
   }
@@ -237,6 +238,7 @@ const maybeUpdateAssessment = async (job: { payload: unknown }, status: JobStatu
   const assessmentId = payload.assessmentId;
   const nextStatus = status === JobStatus.SUCCEEDED ? AssessmentStatus.COMPLETED : AssessmentStatus.FAILED;
 
+  // Update assessment status
   await prisma.assessment.updateMany({
     where: { id: assessmentId },
     data: {
@@ -244,4 +246,49 @@ const maybeUpdateAssessment = async (job: { payload: unknown }, status: JobStatu
       endTime: new Date(),
     },
   });
+
+  // If job succeeded, copy results from job_results to assessment_results
+  if (status === JobStatus.SUCCEEDED) {
+    try {
+      const jobResult = await prisma.jobResult.findUnique({
+        where: { jobId: job.id },
+      });
+
+      if (jobResult && jobResult.summary) {
+        const summary = jobResult.summary as any;
+
+        // Extract individual module results from job summary
+        if (summary.results && Array.isArray(summary.results)) {
+          const assessmentResults = summary.results.map((result: any) => ({
+            assessmentId,
+            checkType: result.checkType,
+            resultData: JSON.stringify(result.data || {}),
+            riskScore: result.riskScore || 0,
+            riskLevel: result.riskLevel || 'LOW',
+            createdAt: new Date(),
+          }));
+
+          // Create assessment results
+          if (assessmentResults.length > 0) {
+            await prisma.assessmentResult.createMany({
+              data: assessmentResults,
+              skipDuplicates: true,
+            });
+          }
+        }
+
+        // Update overall risk score if available
+        if (summary.overallRiskScore && typeof summary.overallRiskScore === 'number') {
+          await prisma.assessment.updateMany({
+            where: { id: assessmentId },
+            data: {
+              overallRiskScore: summary.overallRiskScore,
+            },
+          });
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to copy job results to assessment results', { error, jobId: job.id, assessmentId });
+    }
+  }
 };

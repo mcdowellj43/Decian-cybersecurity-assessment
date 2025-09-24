@@ -22,10 +22,16 @@ logging: {verbose, level, file}
 ```
 
 ## Implemented Modules
-1. **WIN_UPDATE_CHECK** - Windows Update status assessment via PowerShell
-2. **WIN_FIREWALL_STATUS_CHECK** - Default module (framework ready)
-3. **PSHELL_EXEC_POLICY_CHECK** - Default module (framework ready)
-4. **EOL_SOFTWARE_CHECK** - Default module (framework ready)
+ MISCONFIGURATION_DISCOVERY
+  WEAK_PASSWORD_DETECTION  
+  DATA_EXPOSURE_CHECK
+  PHISHING_EXPOSURE_INDICATORS
+  PATCH_UPDATE_STATUS
+  ELEVATED_PERMISSIONS_REPORT
+  EXCESSIVE_SHARING_RISKS
+  PASSWORD_POLICY_WEAKNESS
+  OPEN_SERVICE_PORT_ID
+  USER_BEHAVIOR_RISK_SIGNALS
 
 ## Status: 70% Complete
 ✅ CLI framework, config system, dashboard client

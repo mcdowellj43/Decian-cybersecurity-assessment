@@ -130,10 +130,16 @@ func setDefaults() {
 
 	viper.SetDefault("assessment.timeout", 300)
 	viper.SetDefault("assessment.default_modules", []string{
-		"WIN_UPDATE_CHECK",
-		"WIN_FIREWALL_STATUS_CHECK",
-		"PSHELL_EXEC_POLICY_CHECK",
-		"EOL_SOFTWARE_CHECK",
+		"MISCONFIGURATION_DISCOVERY",
+		"WEAK_PASSWORD_DETECTION",
+		"DATA_EXPOSURE_CHECK",
+		"PHISHING_EXPOSURE_INDICATORS",
+		"PATCH_UPDATE_STATUS",
+		"ELEVATED_PERMISSIONS_REPORT",
+		"EXCESSIVE_SHARING_RISKS",
+		"PASSWORD_POLICY_WEAKNESS",
+		"OPEN_SERVICE_PORT_ID",
+		"USER_BEHAVIOR_RISK_SIGNALS",
 	})
 	viper.SetDefault("assessment.module_config", map[string]string{})
 

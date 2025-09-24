@@ -1,8 +1,8 @@
 ﻿# Decian Security Agent Configuration
-# Organization: cmfy7ihi10000u38kcab8sq4r
+# Organization: cmfye680q0000u3cwjw101lyh
 dashboard:
   url: "https://localhost:3001"
-  organization_id: "cmfy7ihi10000u38kcab8sq4r"
+  organization_id: "cmfye680q0000u3cwjw101lyh"
 
 agent:
   version: "2.0.0"

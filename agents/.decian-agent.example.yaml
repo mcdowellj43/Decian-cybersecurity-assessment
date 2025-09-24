@@ -28,15 +28,21 @@ auth:
 assessment:
   # Default modules to run if none specified
   default_modules:
-    - "WIN_UPDATE_CHECK"
-    - "WIN_FIREWALL_STATUS_CHECK"
-    - "PSHELL_EXEC_POLICY_CHECK"
-    - "EOL_SOFTWARE_CHECK"
+    - MISCONFIGURATION_DISCOVERY
+    - WEAK_PASSWORD_DETECTION
+    - DATA_EXPOSURE_CHECK
+    - PHISHING_EXPOSURE_INDICATORS
+    - PATCH_UPDATE_STATUS
+    - ELEVATED_PERMISSIONS_REPORT
+    - EXCESSIVE_SHARING_RISKS
+    - PASSWORD_POLICY_WEAKNESS
+    - OPEN_SERVICE_PORT_ID
+    - USER_BEHAVIOR_RISK_SIGNALS
 
   # Module-specific configuration
   module_config:
     # Example: configure timeout for specific modules
-    WIN_UPDATE_CHECK: "timeout=300"
+    # MODULE_NAME: "timeout=300"
 
 logging:
   # Enable verbose logging

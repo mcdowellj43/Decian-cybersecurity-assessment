@@ -322,21 +322,16 @@ export default function AssessmentsPage() {
       await createAssessment({
         agentId,
         modules: [
-          'ACCOUNTS_BYPASS_PASS_POLICY',
-          'DC_OPEN_PORTS_CHECK',
-          'DNS_CONFIG_CHECK',
-          'EOL_SOFTWARE_CHECK',
-          'ENABLED_INACTIVE_ACCOUNTS',
-          'NETWORK_PROTOCOLS_CHECK',
-          'PSHELL_EXEC_POLICY_CHECK',
-          'SERVICE_ACCOUNTS_DOMAIN_ADMIN',
-          'PRIVILEGED_ACCOUNTS_NO_EXPIRE',
-          'WIN_FEATURE_SECURITY_CHECK',
-          'WIN_FIREWALL_STATUS_CHECK',
-          'WIN_UPDATE_CHECK',
-          'PASSWORD_CRACK',
-          'KERBEROASTED_ACCOUNTS',
-          'SMB_SIGNING_CHECK'
+          'MISCONFIGURATION_DISCOVERY',
+          'WEAK_PASSWORD_DETECTION',
+          'DATA_EXPOSURE_CHECK',
+          'PHISHING_EXPOSURE_INDICATORS',
+          'PATCH_UPDATE_STATUS',
+          'ELEVATED_PERMISSIONS_REPORT',
+          'EXCESSIVE_SHARING_RISKS',
+          'PASSWORD_POLICY_WEAKNESS',
+          'OPEN_SERVICE_PORT_ID',
+          'USER_BEHAVIOR_RISK_SIGNALS'
         ]
       });
     } catch (error) {

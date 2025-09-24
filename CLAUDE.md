@@ -265,6 +265,7 @@ Database schema sample included.
  ## testing the workflow guidelines 
 
  - when testing the workflow follow the process, sign into the dashboard with mcdowellj@decian.com and Jakeandanna1! as the user/pass
+ - if you get a login failed, register the username, password, and organization as Decian
  - then download the agent
  - register the agent
  - verify the agent registered correctly
