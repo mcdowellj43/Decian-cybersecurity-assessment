@@ -37,16 +37,16 @@ func init() {
 
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.decian-agent.yaml)")
-	rootCmd.PersistentFlags().StringP("dashboard", "d", "", "Dashboard API endpoint URL")
-	rootCmd.PersistentFlags().StringP("token", "t", "", "Authentication token for dashboard")
-	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose logging")
-	rootCmd.PersistentFlags().Bool("dry-run", false, "Run assessment without sending results to dashboard")
+        rootCmd.PersistentFlags().String("server", "", "Jobs API server URL")
+        rootCmd.PersistentFlags().String("org-id", "", "Organization identifier")
+        rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose logging")
+        rootCmd.PersistentFlags().Bool("dry-run", false, "Run assessment without sending results to dashboard")
 
-	// Bind flags to viper
-	viper.BindPFlag("dashboard.url", rootCmd.PersistentFlags().Lookup("dashboard"))
-	viper.BindPFlag("auth.token", rootCmd.PersistentFlags().Lookup("token"))
-	viper.BindPFlag("logging.verbose", rootCmd.PersistentFlags().Lookup("verbose"))
-	viper.BindPFlag("agent.dry_run", rootCmd.PersistentFlags().Lookup("dry-run"))
+        // Bind flags to viper
+        viper.BindPFlag("server.url", rootCmd.PersistentFlags().Lookup("server"))
+        viper.BindPFlag("organization.id", rootCmd.PersistentFlags().Lookup("org-id"))
+        viper.BindPFlag("logging.verbose", rootCmd.PersistentFlags().Lookup("verbose"))
+        viper.BindPFlag("agent.dry_run", rootCmd.PersistentFlags().Lookup("dry-run"))
 }
 
 // initConfig reads in config file and ENV variables if set.

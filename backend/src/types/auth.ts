@@ -27,9 +27,15 @@ export interface AuthUser {
   organizationName: string;
 }
 
+export interface EnrollmentTokenResponse {
+  token: string;
+  expiresAt: string;
+}
+
 export interface LoginResponse {
   user: AuthUser;
   tokens: AuthTokens;
+  enrollmentToken?: EnrollmentTokenResponse;
 }
 
 export interface JWTPayload {
