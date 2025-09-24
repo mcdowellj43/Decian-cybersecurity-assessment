@@ -13,6 +13,7 @@ import { isJobsApiEnabled } from '@/config/featureFlags';
 import { signAgentAccessToken } from '@/utils/agentJwt';
 
 // Validation schemas
+
 const JobsAgentRegistrationSchema = z.object({
   orgId: z.string().min(1, 'Organization ID is required'),
   hostname: z.string().min(1, 'Hostname is required').max(255),
@@ -48,6 +49,7 @@ const parseAgentConfiguration = (raw: string | null | undefined): Record<string,
  * Register a new agent for the organization
  * POST /api/agents/register
  */
+
 export const registerAgent = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
   if (!isJobsApiEnabled()) {
     return next(new AppError('Jobs API is not enabled', 503));
@@ -55,19 +57,23 @@ export const registerAgent = catchAsync(async (req: Request, res: Response, next
 
   const { orgId, hostname, version, enrollToken, labels } = JobsAgentRegistrationSchema.parse(req.body);
 
+
   const organization = await prisma.organization.findUnique({ where: { id: orgId } });
   if (!organization) {
     throw new AppError('Organization not found', 404);
   }
+
 
   const enrollmentTokens = await prisma.enrollmentToken.findMany({
     where: {
       orgId,
       usedAt: null,
       expiresAt: { gt: new Date() },
+
     },
     orderBy: { createdAt: 'desc' },
   });
+
 
   let matchedToken: { id: string } | null = null;
   for (const token of enrollmentTokens) {
@@ -78,9 +84,11 @@ export const registerAgent = catchAsync(async (req: Request, res: Response, next
     }
   }
 
+
   if (!matchedToken) {
     throw new AppError('Invalid or expired enrollment token', 401);
   }
+
 
   await prisma.enrollmentToken.update({
     where: { id: matchedToken.id },
@@ -97,6 +105,7 @@ export const registerAgent = catchAsync(async (req: Request, res: Response, next
     },
     create: {
       orgId,
+
       hostname,
       version: version || 'unknown',
       status: AgentStatus.ONLINE,
@@ -107,9 +116,11 @@ export const registerAgent = catchAsync(async (req: Request, res: Response, next
     update: {
       version: version || undefined,
       status: AgentStatus.ONLINE,
+
       lastSeenAt: now,
       secretHash,
       labels,
+
     },
   });
 
