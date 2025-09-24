@@ -13,6 +13,15 @@ import { isJobsApiEnabled } from '@/config/featureFlags';
 import { signAgentAccessToken } from '@/utils/agentJwt';
 
 // Validation schemas
+
+const JobsAgentRegistrationSchema = z.object({
+  orgId: z.string().min(1, 'Organization ID is required'),
+  hostname: z.string().min(1, 'Hostname is required').max(255),
+  version: z.string().optional(),
+  enrollToken: z.string().min(1, 'Enrollment token is required'),
+  labels: z.record(z.any()).optional().default({}),
+});
+
 const JobsAgentRegistrationSchema = z.object({
   orgId: z.string().min(1, 'Organization ID is required'),
   hostname: z.string().min(1, 'Hostname is required').max(255),
@@ -48,6 +57,7 @@ const parseAgentConfiguration = (raw: string | null | undefined): Record<string,
  * Register a new agent for the organization
  * POST /api/agents/register
  */
+
 export const registerAgent = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
   if (!isJobsApiEnabled()) {
     return next(new AppError('Jobs API is not enabled', 503));
@@ -55,19 +65,23 @@ export const registerAgent = catchAsync(async (req: Request, res: Response, next
 
   const { orgId, hostname, version, enrollToken, labels } = JobsAgentRegistrationSchema.parse(req.body);
 
+
   const organization = await prisma.organization.findUnique({ where: { id: orgId } });
   if (!organization) {
     throw new AppError('Organization not found', 404);
   }
+
 
   const enrollmentTokens = await prisma.enrollmentToken.findMany({
     where: {
       orgId,
       usedAt: null,
       expiresAt: { gt: new Date() },
+
     },
     orderBy: { createdAt: 'desc' },
   });
+
 
   let matchedToken: { id: string } | null = null;
   for (const token of enrollmentTokens) {
@@ -78,9 +92,11 @@ export const registerAgent = catchAsync(async (req: Request, res: Response, next
     }
   }
 
+
   if (!matchedToken) {
     throw new AppError('Invalid or expired enrollment token', 401);
   }
+
 
   await prisma.enrollmentToken.update({
     where: { id: matchedToken.id },
@@ -97,6 +113,7 @@ export const registerAgent = catchAsync(async (req: Request, res: Response, next
     },
     create: {
       orgId,
+
       hostname,
       version: version || 'unknown',
       status: AgentStatus.ONLINE,
@@ -107,9 +124,11 @@ export const registerAgent = catchAsync(async (req: Request, res: Response, next
     update: {
       version: version || undefined,
       status: AgentStatus.ONLINE,
+
       lastSeenAt: now,
       secretHash,
       labels,
+
     },
   });
 
@@ -127,6 +146,50 @@ export const registerAgent = catchAsync(async (req: Request, res: Response, next
 export const mintAgentToken = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
   if (!isJobsApiEnabled()) {
     return next(new AppError('Jobs API is not enabled', 503));
+  }
+
+  const { id: agentId } = req.params;
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Basic ')) {
+    throw new AppError('Agent credentials required', 401);
+  }
+
+  const decoded = Buffer.from(authHeader.replace('Basic ', ''), 'base64').toString('utf-8');
+  const [providedId, agentSecret] = decoded.split(':');
+
+  if (!providedId || !agentSecret) {
+    throw new AppError('Invalid agent credentials', 401);
+  }
+
+  if (providedId !== agentId) {
+    throw new AppError('Credential agent mismatch', 401);
+  }
+
+  const agent = await prisma.agent.findUnique({ where: { id: agentId } });
+  if (!agent || !agent.secretHash) {
+    throw new AppError('Agent not found or secret not provisioned', 401);
+  }
+
+  const validSecret = await bcrypt.compare(agentSecret, agent.secretHash);
+  if (!validSecret) {
+    throw new AppError('Invalid agent secret', 401);
+  }
+
+  const { token, expiresIn } = signAgentAccessToken(agent.id, agent.orgId);
+
+  return res.status(200).json({
+    status: 'success',
+    data: {
+      accessToken: token,
+      expiresIn,
+    },
+  });
+});
+
+export const mintAgentToken = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+  if (!isJobsApiEnabled()) {
+    return next(new AppError('Jobs API is not enabled', 404));
   }
 
   const { id: agentId } = req.params;
