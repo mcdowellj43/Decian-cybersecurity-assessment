@@ -12,14 +12,6 @@ import { validateSchema, registerSchema, loginSchema, refreshTokenSchema, change
 
 const router = Router();
 
-console.log('Auth router loaded successfully');
-console.log('Register function:', register);
-
-// Test route
-router.get('/test', (req, res) => {
-  res.json({ message: 'Auth router test successful' });
-});
-
 /**
  * @route   POST /api/auth/register
  * @desc    Register a new user and organization

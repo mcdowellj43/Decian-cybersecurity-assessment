@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate, requireRole } from '@/middleware/auth';
 import {
   registerAgent,
+  mintAgentToken,
   getAgents,
   getAgentById,
   updateAgent,
@@ -10,7 +11,10 @@ import {
   getAgentStats,
   downloadAgent,
 } from '@/controllers/agentController';
+import { nextJobs } from '@/controllers/jobController';
 import { UserRole } from '@prisma/client';
+import { isJobsApiEnabled } from '@/config/featureFlags';
+import { requireAgentJwt } from '@/middleware/agentAuth';
 
 const router = Router();
 
@@ -20,6 +24,11 @@ const router = Router();
  * @access  Public (Agents with embedded organization ID)
  */
 router.post('/register', registerAgent);
+
+if (isJobsApiEnabled()) {
+  router.post('/:id/tokens', mintAgentToken);
+  router.get('/:id/next-jobs', requireAgentJwt, nextJobs);
+}
 
 // All other agent routes require authentication
 router.use(authenticate);
