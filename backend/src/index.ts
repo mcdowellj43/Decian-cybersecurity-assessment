@@ -79,6 +79,7 @@ app.post('/api/auth/register', async (req, res) => {
     const { prisma } = await import('@/utils/database');
     const { hashPassword } = await import('@/utils/password');
     const { generateTokens } = await import('@/utils/jwt');
+    const { createEnrollmentToken } = await import('@/utils/enrollmentToken');
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -119,7 +120,9 @@ app.post('/api/auth/register', async (req, res) => {
         },
       });
 
-      return { user, organization };
+      const enrollmentToken = await createEnrollmentToken(tx, organization.id, user.id);
+
+      return { user, organization, enrollmentToken };
     });
 
     // Generate tokens
@@ -139,6 +142,10 @@ app.post('/api/auth/register', async (req, res) => {
           },
         },
         tokens,
+        enrollmentToken: {
+          token: result.enrollmentToken.token,
+          expiresAt: result.enrollmentToken.expiresAt.toISOString(),
+        },
       },
     });
   } catch (error: any) {

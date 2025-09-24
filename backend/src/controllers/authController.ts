@@ -6,6 +6,7 @@ import { hashPassword, comparePassword, validatePasswordStrength } from '@/utils
 import { AppError, catchAsync } from '@/middleware/errorHandler';
 import { logger } from '@/utils/logger';
 import { RegisterRequest, LoginRequest, LoginResponse, AuthUser } from '@/types/auth';
+import { createEnrollmentToken } from '@/utils/enrollmentToken';
 
 /**
  * Register a new user and organization
@@ -60,7 +61,9 @@ export const register = catchAsync(async (req: Request, res: Response, next: Nex
       },
     });
 
-    return { user, organization };
+    const enrollmentToken = await createEnrollmentToken(tx, organization.id, user.id);
+
+    return { user, organization, enrollmentToken };
   });
 
   // Generate tokens
@@ -86,6 +89,10 @@ export const register = catchAsync(async (req: Request, res: Response, next: Nex
   const response: LoginResponse = {
     user: userData,
     tokens,
+    enrollmentToken: {
+      token: result.enrollmentToken.token,
+      expiresAt: result.enrollmentToken.expiresAt.toISOString(),
+    },
   };
 
   res.status(201).json({

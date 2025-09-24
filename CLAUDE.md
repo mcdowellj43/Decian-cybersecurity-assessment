@@ -3,7 +3,10 @@
 ## Project snapshot
 - **Monorepo composition:** Next.js dashboard (`frontend`), Express/Prisma API (`backend`), and Go assessment agent (`agents`).
 - **Primary goal:** Provide a secure workflow for provisioning agents, queuing Windows security assessments, and presenting results in the dashboard.
-- **Current focus:** Rolling out the feature-flagged jobs transport while maintaining legacy assessment endpoints during the transition.
+
+- **Reference guides:** See [`backend-overview.md`](backend-overview.md) for API specifics and [`agents-overview.md`](agents-overview.md) for CLI/runtime details.
+- **Current focus:** Rolling out the jobs transport architecture and ensuring every component speaks the new queue-based protocol.
+
 
 ## Repository layout
 | Path | Description |
@@ -14,17 +17,27 @@
 | `shared/` | Shared utilities and types consumed by dashboard/backend (currently minimal). |
 | `CLAUDE.md` | This living specification. |
 
-## Key backend capabilities
-- **Auth & org scoping**
-  - JWT-based user auth with role enforcement (`middleware/auth.ts`).
-  - Agent-facing JWT middleware (`middleware/agentAuth.ts`) validating the jobs token claims and binding requests to an `agentId`/`orgId` pair.
-- **Feature flagging**
+## Architecture updates
+- **Jobs-first orchestration:** Assessments now flow through `Job` and `JobResult` records, with agents long-polling `next-jobs` instead of the previous direct assessment submission endpoints.
+- **Single enrollment path:** Agents register exclusively via `POST /api/agents/register` using one-time `EnrollmentToken` values, receiving a hashed secret for future authentication.
+- **JWT-based transport:** Agents authenticate every queue interaction with short-lived JWTs minted from `POST /api/agents/:id/tokens`, replacing prior static token usage.
+- **Dashboard integration:** Assessment scheduling invokes `/enqueue` to populate the queue, and UI components consume job/agent status fields to reflect live execution.
+
+
+  - `JOBS_API_ENABLED` env var toggles the jobs enrollment + transport path (`config/featureFlags.ts`).
+  - All enrollment, token minting, and queue handlers operate exclusively through the jobs architecture.
+- **Agent lifecycle APIs** (`routes/agents.ts`)
+  - `POST /api/agents/register` verifies one-time enrollment tokens, upserts agents, and returns `{ agentId, agentSecret }` once.
+  - `POST /api/agents/:id/tokens` issues short-lived JWTs after validating the Basic credentials against the stored bcrypt hash.
+  - Additional CRUD operations cover listing, viewing, updating, deleting agents plus heartbeat updates.
+
   - `JOBS_API_ENABLED` env var toggles the new agent enrollment + jobs transport (`config/featureFlags.ts`).
   - When disabled, legacy agent registration and assessment submission endpoints remain available.
 - **Agent lifecycle APIs** (`routes/agents.ts`)
   - `POST /api/agents/register` supports both legacy (`organizationId` + config) and jobs API (`orgId` + `enrollToken`) flows.
   - `POST /api/agents/:id/tokens` (jobs only) issues a short-lived JWT after validating the Basic credentials against the stored bcrypt hash.
   - CRUD operations for listing, viewing, updating, deleting agents plus heartbeat updates.
+
 - **Job queue transport** (`routes/jobs.ts`)
   - Long-poll dequeue: `GET /api/agents/:id/next-jobs?wait=30` returns work scoped to the authenticated agent.
   - State transitions: `POST /api/jobs/:jobId/ack`, `POST /api/jobs/:jobId/start`, `PUT /api/jobs/:jobId/results` (idempotent terminal states).

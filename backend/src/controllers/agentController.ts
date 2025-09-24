@@ -22,14 +22,6 @@ const JobsAgentRegistrationSchema = z.object({
   labels: z.record(z.any()).optional().default({}),
 });
 
-const JobsAgentRegistrationSchema = z.object({
-  orgId: z.string().min(1, 'Organization ID is required'),
-  hostname: z.string().min(1, 'Hostname is required').max(255),
-  version: z.string().optional(),
-  enrollToken: z.string().min(1, 'Enrollment token is required'),
-  labels: z.record(z.any()).optional().default({}),
-});
-
 const AgentUpdateSchema = z.object({
   configuration: z.record(z.any()).optional(),
   status: z.nativeEnum(AgentStatus).optional(),
@@ -146,50 +138,6 @@ export const registerAgent = catchAsync(async (req: Request, res: Response, next
 export const mintAgentToken = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
   if (!isJobsApiEnabled()) {
     return next(new AppError('Jobs API is not enabled', 503));
-  }
-
-  const { id: agentId } = req.params;
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Basic ')) {
-    throw new AppError('Agent credentials required', 401);
-  }
-
-  const decoded = Buffer.from(authHeader.replace('Basic ', ''), 'base64').toString('utf-8');
-  const [providedId, agentSecret] = decoded.split(':');
-
-  if (!providedId || !agentSecret) {
-    throw new AppError('Invalid agent credentials', 401);
-  }
-
-  if (providedId !== agentId) {
-    throw new AppError('Credential agent mismatch', 401);
-  }
-
-  const agent = await prisma.agent.findUnique({ where: { id: agentId } });
-  if (!agent || !agent.secretHash) {
-    throw new AppError('Agent not found or secret not provisioned', 401);
-  }
-
-  const validSecret = await bcrypt.compare(agentSecret, agent.secretHash);
-  if (!validSecret) {
-    throw new AppError('Invalid agent secret', 401);
-  }
-
-  const { token, expiresIn } = signAgentAccessToken(agent.id, agent.orgId);
-
-  return res.status(200).json({
-    status: 'success',
-    data: {
-      accessToken: token,
-      expiresIn,
-    },
-  });
-});
-
-export const mintAgentToken = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-  if (!isJobsApiEnabled()) {
-    return next(new AppError('Jobs API is not enabled', 404));
   }
 
   const { id: agentId } = req.params;
