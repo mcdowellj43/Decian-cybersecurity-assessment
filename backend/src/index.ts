@@ -125,7 +125,7 @@ app.post('/api/auth/register', async (req, res) => {
     // Generate tokens
     const tokens = generateTokens(result.user.id, result.organization.id, result.user.role);
 
-    res.status(201).json({
+    return res.status(201).json({
       status: 'success',
       data: {
         user: {
@@ -143,7 +143,7 @@ app.post('/api/auth/register', async (req, res) => {
     });
   } catch (error: any) {
     console.error('Registration error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       status: 'error',
       message: 'Internal server error during registration'
     });
@@ -201,7 +201,7 @@ app.post('/api/auth/login', async (req, res) => {
     // Generate tokens
     const tokens = generateTokens(user.id, user.organizationId, user.role);
 
-    res.json({
+    return res.json({
       status: 'success',
       data: {
         user: {
@@ -219,7 +219,7 @@ app.post('/api/auth/login', async (req, res) => {
     });
   } catch (error: any) {
     console.error('Login error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       status: 'error',
       message: 'Internal server error during login'
     });
@@ -267,6 +267,9 @@ const startServer = async () => {
     const reportRoutes = (await import('@/routes/reports')).default;
     console.log('Report routes imported successfully');
 
+    const jobRoutes = (await import('@/routes/jobs')).default;
+    console.log('Job routes imported successfully');
+
     console.log('All routes imported, mounting...');
 
     // Direct routes are already registered above
@@ -280,6 +283,8 @@ const startServer = async () => {
     app.use('/api/assessments', assessmentRoutes);
     console.log('Mounting report routes:', typeof reportRoutes);
     app.use('/api/reports', reportRoutes);
+    console.log('Mounting job routes:', typeof jobRoutes);
+    app.use('/api/jobs', jobRoutes);
 
     console.log('All routes mounted successfully, starting server...');
 

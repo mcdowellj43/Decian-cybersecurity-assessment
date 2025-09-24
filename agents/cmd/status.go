@@ -5,20 +5,13 @@ import (
 	"decian-agent/internal/config"
 	"decian-agent/internal/logger"
 	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
-// statusCmd represents the status command
 var statusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Show agent status and connection to dashboard",
-	Long: `Display the current status of the agent including:
-- Registration status
-- Connection to dashboard
-- Recent assessment history
-- Agent configuration`,
-	RunE: runStatus,
+	Short: "Show agent registration and connectivity status",
+	RunE:  runStatus,
 }
 
 func init() {
@@ -26,82 +19,65 @@ func init() {
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {
-	// Initialize configuration
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Initialize logger
 	log := logger.NewLogger(cfg.Logging.Verbose)
 
-	fmt.Printf("Decian Agent Status\n")
-	fmt.Printf("==================\n\n")
-
-	// Agent Information
-	fmt.Printf("Agent Information:\n")
-	if cfg.Agent.ID != "" {
-		fmt.Printf("  Status: ✅ Registered\n")
-		fmt.Printf("  Agent ID: %s\n", cfg.Agent.ID)
-		fmt.Printf("  Hostname: %s\n", cfg.Agent.Hostname)
-		fmt.Printf("  Version: %s\n", cfg.Agent.Version)
-	} else {
-		fmt.Printf("  Status: ❌ Not Registered\n")
-		fmt.Printf("  Run 'decian-agent register' to register with dashboard\n")
-	}
+	fmt.Println("Decian Agent Status")
+	fmt.Println("==================")
 	fmt.Println()
 
-	// Dashboard Configuration
-	fmt.Printf("Dashboard Configuration:\n")
-	if cfg.Dashboard.URL != "" {
-		fmt.Printf("  URL: %s\n", cfg.Dashboard.URL)
-	} else {
-		fmt.Printf("  URL: ❌ Not configured\n")
-	}
-
-	if cfg.Auth.Token != "" {
-		fmt.Printf("  Authentication: ✅ Token configured\n")
-	} else {
-		fmt.Printf("  Authentication: ❌ Token not configured\n")
-	}
-	fmt.Println()
-
-	// Test connection if agent is registered
-	if cfg.Agent.ID != "" && cfg.Dashboard.URL != "" && cfg.Auth.Token != "" {
-		fmt.Printf("Dashboard Connection:\n")
-		dashboardClient := client.NewDashboardClient(cfg.Dashboard.URL, cfg.Auth.Token, log)
-
-		agent, err := dashboardClient.GetAgentStatus(cfg.Agent.ID)
-		if err != nil {
-			fmt.Printf("  Status: ❌ Connection failed\n")
-			fmt.Printf("  Error: %s\n", err.Error())
-		} else {
-			fmt.Printf("  Status: ✅ Connected\n")
-			fmt.Printf("  Agent Status: %s\n", agent.Status)
-			if agent.LastSeen != nil {
-				fmt.Printf("  Last Seen: %s\n", agent.LastSeen.Format("2006-01-02 15:04:05"))
-			}
-		}
-		fmt.Println()
-	}
-
-	// Assessment Configuration
-	fmt.Printf("Assessment Configuration:\n")
-	fmt.Printf("  Default Modules: %d configured\n", len(cfg.Assessment.DefaultModules))
-	for _, module := range cfg.Assessment.DefaultModules {
-		fmt.Printf("    - %s\n", module)
-	}
-	fmt.Printf("  Dry Run Mode: %t\n", cfg.Agent.DryRun)
-	fmt.Println()
-
-	// Configuration File
-	fmt.Printf("Configuration:\n")
+	fmt.Println("Configuration:")
 	if cfg.ConfigFile != "" {
 		fmt.Printf("  Config File: %s\n", cfg.ConfigFile)
 	} else {
-		fmt.Printf("  Config File: Using defaults (no config file found)\n")
+		fmt.Println("  Config File: <not found>")
 	}
-	fmt.Printf("  Verbose Logging: %t\n", cfg.Logging.Verbose)
+	fmt.Printf("  Server URL: %s\n", nonEmpty(cfg.Server.URL, "<not configured>"))
+	fmt.Printf("  Organization ID: %s\n", nonEmpty(cfg.Organization.ID, "<not configured>"))
+	fmt.Println()
 
+	fmt.Println("Agent Credentials:")
+	if cfg.Agent.ID != "" {
+		fmt.Printf("  Agent ID: %s\n", cfg.Agent.ID)
+	} else {
+		fmt.Println("  Agent ID: <not registered>")
+	}
+	if cfg.Agent.Secret != "" {
+		fmt.Println("  Secret: ✅ stored")
+	} else {
+		fmt.Println("  Secret: ❌ missing")
+	}
+	fmt.Printf("  Hostname: %s\n", nonEmpty(cfg.Agent.Hostname, "<unknown>"))
+	fmt.Printf("  Version: %s\n", nonEmpty(cfg.Agent.Version, "<unknown>"))
+	fmt.Printf("  Capacity: %d\n", cfg.Agent.Capacity)
+	fmt.Printf("  Labels: %v\n", cfg.Agent.Labels)
+	fmt.Println()
+
+	if cfg.Server.URL == "" || cfg.Agent.ID == "" || cfg.Agent.Secret == "" {
+		fmt.Println("Connectivity check skipped: missing configuration")
+		return nil
+	}
+
+	apiClient := client.NewAPIClient(cfg.Server.URL, log)
+	token, err := apiClient.MintAgentToken(cfg.Agent.ID, cfg.Agent.Secret)
+	if err != nil {
+		fmt.Println("Connectivity: ❌ unable to mint agent token")
+		fmt.Printf("  Error: %v\n", err)
+		return nil
+	}
+
+	fmt.Println("Connectivity: ✅ agent credentials accepted")
+	fmt.Printf("  Token expires in: %d seconds\n", token.ExpiresIn)
 	return nil
+}
+
+func nonEmpty(value, fallback string) string {
+	if value == "" {
+		return fallback
+	}
+	return value
 }

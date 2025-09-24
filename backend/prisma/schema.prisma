@@ -22,6 +22,8 @@ model Organization {
   users       User[]
   agents      Agent[]
   assessments Assessment[]
+  enrollmentTokens EnrollmentToken[]
+  jobs       Job[]
 
   @@map("organizations")
 }
@@ -52,21 +54,26 @@ enum UserRole {
 
 // Agents and their configurations
 model Agent {
-  id             String          @id @default(cuid())
-  organizationId String          @map("organization_id")
-  hostname       String
-  version        String
-  status         AgentStatus     @default(OFFLINE)
-  configuration  String          @default("{}")
-  lastSeen       DateTime?       @map("last_seen")
-  createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt      DateTime        @updatedAt @map("updated_at")
+  id            String       @id @default(cuid())
+  orgId         String       @map("organization_id")
+  hostname      String
+  version       String?
+  status        AgentStatus  @default(OFFLINE)
+  lastSeenAt    DateTime?    @map("last_seen")
+  capacity      Int          @default(1)
+  secretHash    String?
+  labels        Json?
+  configuration String       @default("{}")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
 
   // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   assessments  Assessment[]
+  jobs         Job[]
 
-  @@unique([organizationId, hostname])
+  @@unique([orgId, hostname])
+  @@index([orgId], name: "agent_org_idx")
   @@map("agents")
 }
 
@@ -74,6 +81,68 @@ enum AgentStatus {
   ONLINE
   OFFLINE
   ERROR
+}
+
+model EnrollmentToken {
+  id        String   @id @default(cuid())
+  orgId     String   @map("organization_id")
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdBy String    @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId], name: "enrollment_token_org_idx")
+  @@map("enrollment_tokens")
+}
+
+model Job {
+  id        String    @id @default(cuid())
+  orgId     String    @map("organization_id")
+  agentId   String    @map("agent_id")
+  type      String
+  payload   Json
+  status    JobStatus @default(QUEUED)
+  attempts  Int       @default(0)
+  notBefore DateTime? @map("not_before")
+  dedupeKey String?   @map("dedupe_key")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  agent      Agent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  result     JobResult?
+
+  @@index([orgId], name: "jobs_org_idx")
+  @@index([agentId], name: "jobs_agent_idx")
+  @@index([dedupeKey], name: "jobs_dedupe_idx")
+  @@index([orgId, agentId, status], name: "jobs_dequeue_idx")
+  @@map("jobs")
+}
+
+model JobResult {
+  id          String    @id @default(cuid())
+  jobId       String    @map("job_id") @unique
+  status      JobStatus
+  summary     Json
+  artifactUrl String?   @map("artifact_url")
+  startedAt   DateTime? @map("started_at")
+  finishedAt  DateTime? @map("finished_at")
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("job_results")
+}
+
+enum JobStatus {
+  QUEUED
+  DISPATCHED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  EXPIRED
 }
 
 // Assessment runs
