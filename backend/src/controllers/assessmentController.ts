@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import { AssessmentStatus, CheckType, RiskLevel } from '@prisma/client';
+import { AssessmentStatus, CheckType, RiskLevel, JobStatus } from '@prisma/client';
 import { prisma } from '@/utils/database';
 import { AppError, catchAsync } from '@/middleware/errorHandler';
 import { logger } from '@/utils/logger';
 import { z } from 'zod';
+import { isJobsApiEnabled } from '@/config/featureFlags';
 
 // Validation schemas
 const CreateAssessmentSchema = z.object({
@@ -22,6 +23,12 @@ const SubmitResultsSchema = z.object({
   overallRiskScore: z.number().min(0).max(100).optional(),
 });
 
+const EnqueueJobsSchema = z.object({
+  agentIds: z.array(z.string().min(1)).min(1),
+  modules: z.array(z.string().min(1)).min(1),
+  options: z.record(z.any()).optional(),
+});
+
 /**
  * Create a new assessment
  * POST /api/assessments
@@ -34,7 +41,7 @@ export const createAssessment = catchAsync(async (req: Request, res: Response, n
   const agent = await prisma.agent.findFirst({
     where: {
       id: agentId,
-      organizationId,
+      orgId: organizationId,
     },
   });
 
@@ -248,7 +255,7 @@ export const submitAssessmentResults = catchAsync(async (req: Request, res: Resp
       data: results.map(result => ({
         assessmentId: id as string,
         checkType: result.checkType,
-        resultData: result.resultData,
+        resultData: JSON.stringify(result.resultData),
         riskScore: result.riskScore,
         riskLevel: result.riskLevel,
       })),
@@ -319,12 +326,12 @@ export const stopAssessment = catchAsync(async (req: Request, res: Response, nex
     data: {
       status: AssessmentStatus.FAILED,
       endTime: new Date(),
-      metadata: {
-        ...(assessment.metadata as object),
+      metadata: JSON.stringify({
+        ...safeJsonParse(assessment.metadata ?? '{}'),
         stoppedBy: req.user!.id,
         stoppedAt: new Date().toISOString(),
         reason: 'Manually stopped by user',
-      },
+      }),
     },
   });
 
@@ -431,3 +438,84 @@ export const getAssessmentStats = catchAsync(async (req: Request, res: Response)
     },
   });
 });
+export const enqueueAssessmentJobs = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+  if (!isJobsApiEnabled()) {
+    return next(new AppError('Jobs API is not enabled for this environment', 409));
+  }
+
+  const { assessmentId } = req.params;
+  const organizationId = req.user!.organizationId;
+  const { agentIds, modules, options } = EnqueueJobsSchema.parse(req.body);
+
+  const assessment = await prisma.assessment.findFirst({
+    where: { id: assessmentId, organizationId },
+  });
+
+  if (!assessment) {
+    return next(new AppError('Assessment not found', 404));
+  }
+
+  const agents = await prisma.agent.findMany({
+    where: {
+      id: { in: agentIds },
+      orgId: organizationId,
+    },
+  });
+
+  if (agents.length !== agentIds.length) {
+    return next(new AppError('One or more agents are invalid for this organization', 400));
+  }
+
+  const payload = {
+    assessmentId,
+    modules,
+    options: options ?? {},
+    version: '1',
+  };
+
+  const jobs = await prisma.$transaction(
+    agents.map((agent) =>
+      prisma.job.create({
+        data: {
+          orgId: organizationId,
+          agentId: agent.id,
+          type: 'ASSESSMENT',
+          payload,
+          status: JobStatus.QUEUED,
+          dedupeKey: `${assessmentId}:${agent.id}`,
+        },
+      })
+    )
+  );
+
+  const currentMetadata = safeJsonParse(assessment.metadata ?? '{}');
+  const mergedMetadata = {
+    ...currentMetadata,
+    modules,
+    agentIds,
+    options: options ?? {},
+  };
+
+  await prisma.assessment.update({
+    where: { id: assessmentId },
+    data: {
+      status: AssessmentStatus.PENDING,
+      metadata: JSON.stringify(mergedMetadata),
+    },
+  });
+
+  return res.status(202).json({
+    status: 'success',
+    data: {
+      jobs,
+    },
+  });
+});
+
+const safeJsonParse = (value: string): Record<string, unknown> => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
+};

@@ -7,18 +7,32 @@ import { z } from 'zod';
 import path from 'path';
 import fs from 'fs';
 import { execSync } from 'child_process';
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+import { isJobsApiEnabled } from '@/config/featureFlags';
+import { signAgentAccessToken } from '@/utils/agentJwt';
 
 // Validation schemas
-const AgentRegistrationSchema = z.object({
+const LegacyAgentRegistrationSchema = z.object({
   organizationId: z.string().min(1, 'Organization ID is required'),
   hostname: z.string().min(1, 'Hostname is required').max(255),
   version: z.string().min(1, 'Version is required').max(50),
   configuration: z.record(z.any()).optional().default({}),
 });
 
+const JobsAgentRegistrationSchema = z.object({
+  orgId: z.string().min(1, 'Organization ID is required'),
+  hostname: z.string().min(1, 'Hostname is required').max(255),
+  version: z.string().optional(),
+  enrollToken: z.string().min(1, 'Enrollment token is required'),
+  labels: z.record(z.any()).optional().default({}),
+});
+
 const AgentUpdateSchema = z.object({
   configuration: z.record(z.any()).optional(),
   status: z.nativeEnum(AgentStatus).optional(),
+  capacity: z.number().int().positive().max(32).optional(),
+  labels: z.record(z.any()).optional(),
 });
 
 const HeartbeatSchema = z.object({
@@ -26,41 +40,121 @@ const HeartbeatSchema = z.object({
   metadata: z.record(z.any()).optional().default({}),
 });
 
+const parseAgentConfiguration = (raw: string | null | undefined): Record<string, unknown> => {
+  if (!raw) {
+    return {};
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+};
+
 /**
  * Register a new agent for the organization
  * POST /api/agents/register
  */
-export const registerAgent = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-  const { organizationId, hostname, version, configuration } = AgentRegistrationSchema.parse(req.body);
+export const registerAgent = catchAsync(async (req: Request, res: Response, _next: NextFunction) => {
+  if (isJobsApiEnabled()) {
+    const { orgId, hostname, version, enrollToken, labels } = JobsAgentRegistrationSchema.parse(req.body);
 
-  // Verify organization exists
+    const organization = await prisma.organization.findUnique({ where: { id: orgId } });
+    if (!organization) {
+      throw new AppError('Organization not found', 404);
+    }
+
+    const enrollmentTokens = await prisma.enrollmentToken.findMany({
+      where: {
+        orgId,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let matchedToken: { id: string } | null = null;
+    for (const token of enrollmentTokens) {
+      const match = await bcrypt.compare(enrollToken, token.tokenHash);
+      if (match) {
+        matchedToken = { id: token.id };
+        break;
+      }
+    }
+
+    if (!matchedToken) {
+      throw new AppError('Invalid or expired enrollment token', 401);
+    }
+
+    await prisma.enrollmentToken.update({
+      where: { id: matchedToken.id },
+      data: { usedAt: new Date() },
+    });
+
+    const agentSecret = crypto.randomBytes(32).toString('hex');
+    const secretHash = await bcrypt.hash(agentSecret, 10);
+    const now = new Date();
+
+    const agent = await prisma.agent.upsert({
+      where: {
+        orgId_hostname: { orgId, hostname },
+      },
+      create: {
+        orgId,
+        hostname,
+        version: version || 'unknown',
+        status: AgentStatus.ONLINE,
+        lastSeenAt: now,
+        secretHash,
+        labels,
+      },
+      update: {
+        version: version || undefined,
+        status: AgentStatus.ONLINE,
+        lastSeenAt: now,
+        secretHash,
+        labels,
+      },
+    });
+
+    logger.info(`Agent ${agent.id} enrolled via jobs API for organization ${orgId}`);
+
+    return res.status(201).json({
+      status: 'success',
+      data: {
+        agentId: agent.id,
+        agentSecret,
+      },
+    });
+  }
+
+  const { organizationId, hostname, version, configuration } = LegacyAgentRegistrationSchema.parse(req.body);
+
   const organization = await prisma.organization.findUnique({
-    where: { id: organizationId }
+    where: { id: organizationId },
   });
 
   if (!organization) {
     throw new AppError('Organization not found', 404);
   }
 
-  // Check if agent with this hostname already exists for the organization
   const existingAgent = await prisma.agent.findUnique({
     where: {
-      organizationId_hostname: {
-        organizationId,
+      orgId_hostname: {
+        orgId: organizationId,
         hostname,
       },
     },
   });
 
   if (existingAgent) {
-    // Update existing agent instead of creating new one
     const updatedAgent = await prisma.agent.update({
       where: { id: existingAgent.id },
       data: {
         version,
         configuration: JSON.stringify(configuration),
         status: AgentStatus.ONLINE,
-        lastSeen: new Date(),
+        lastSeenAt: new Date(),
       },
     });
 
@@ -73,15 +167,14 @@ export const registerAgent = catchAsync(async (req: Request, res: Response, next
     });
   }
 
-  // Create new agent
   const agent = await prisma.agent.create({
     data: {
-      organizationId,
+      orgId: organizationId,
       hostname,
       version,
       configuration: JSON.stringify(configuration),
       status: AgentStatus.ONLINE,
-      lastSeen: new Date(),
+      lastSeenAt: new Date(),
     },
   });
 
@@ -94,6 +187,50 @@ export const registerAgent = catchAsync(async (req: Request, res: Response, next
   });
 });
 
+export const mintAgentToken = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+  if (!isJobsApiEnabled()) {
+    return next(new AppError('Jobs API is not enabled', 404));
+  }
+
+  const { id: agentId } = req.params;
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Basic ')) {
+    throw new AppError('Agent credentials required', 401);
+  }
+
+  const decoded = Buffer.from(authHeader.replace('Basic ', ''), 'base64').toString('utf-8');
+  const [providedId, agentSecret] = decoded.split(':');
+
+  if (!providedId || !agentSecret) {
+    throw new AppError('Invalid agent credentials', 401);
+  }
+
+  if (providedId !== agentId) {
+    throw new AppError('Credential agent mismatch', 401);
+  }
+
+  const agent = await prisma.agent.findUnique({ where: { id: agentId } });
+  if (!agent || !agent.secretHash) {
+    throw new AppError('Agent not found or secret not provisioned', 401);
+  }
+
+  const validSecret = await bcrypt.compare(agentSecret, agent.secretHash);
+  if (!validSecret) {
+    throw new AppError('Invalid agent secret', 401);
+  }
+
+  const { token, expiresIn } = signAgentAccessToken(agent.id, agent.orgId);
+
+  return res.status(200).json({
+    status: 'success',
+    data: {
+      accessToken: token,
+      expiresIn,
+    },
+  });
+});
+
 /**
  * Get all agents for the organization
  * GET /api/agents
@@ -102,14 +239,14 @@ export const getAgents = catchAsync(async (req: Request, res: Response) => {
   const organizationId = req.user!.organizationId;
   const { status, limit = 50, offset = 0 } = req.query;
 
-  const where: any = { organizationId };
+  const where: any = { orgId: organizationId };
   if (status && Object.values(AgentStatus).includes(status as AgentStatus)) {
     where.status = status;
   }
 
   const agents = await prisma.agent.findMany({
     where,
-    orderBy: { lastSeen: 'desc' },
+    orderBy: { lastSeenAt: 'desc' },
     take: Number(limit),
     skip: Number(offset),
     include: {
@@ -152,7 +289,7 @@ export const getAgentById = catchAsync(async (req: Request, res: Response, next:
   const agent = await prisma.agent.findFirst({
     where: {
       id,
-      organizationId,
+      orgId: organizationId,
     },
     include: {
       assessments: {
@@ -195,7 +332,7 @@ export const updateAgent = catchAsync(async (req: Request, res: Response, next: 
   const existingAgent = await prisma.agent.findFirst({
     where: {
       id,
-      organizationId,
+      orgId: organizationId,
     },
   });
 
@@ -230,7 +367,7 @@ export const deleteAgent = catchAsync(async (req: Request, res: Response, next: 
   const existingAgent = await prisma.agent.findFirst({
     where: {
       id,
-      organizationId,
+      orgId: organizationId,
     },
   });
 
@@ -264,7 +401,7 @@ export const agentHeartbeat = catchAsync(async (req: Request, res: Response, nex
   const existingAgent = await prisma.agent.findFirst({
     where: {
       id,
-      organizationId,
+      orgId: organizationId,
     },
   });
 
@@ -275,14 +412,16 @@ export const agentHeartbeat = catchAsync(async (req: Request, res: Response, nex
   // Prepare update data
   const updateData: any = {
     status,
-    lastSeen: new Date(),
+    lastSeenAt: new Date(),
   };
 
   if (metadata && Object.keys(metadata).length > 0) {
-    updateData.configuration = {
-      ...(existingAgent.configuration as object),
+    const existingConfig = parseAgentConfiguration(existingAgent.configuration);
+    updateData.configuration = JSON.stringify({
+      ...existingConfig,
       lastHeartbeatMetadata: metadata,
-    };
+      lastHeartbeatAt: new Date().toISOString(),
+    });
   }
 
   // Update agent status and last seen
@@ -307,18 +446,18 @@ export const getAgentStats = catchAsync(async (req: Request, res: Response) => {
 
   const stats = await prisma.agent.groupBy({
     by: ['status'],
-    where: { organizationId },
+    where: { orgId: organizationId },
     _count: true,
   });
 
   const totalAgents = await prisma.agent.count({
-    where: { organizationId },
+    where: { orgId: organizationId },
   });
 
   const recentlyActive = await prisma.agent.count({
     where: {
-      organizationId,
-      lastSeen: {
+      orgId: organizationId,
+      lastSeenAt: {
         gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
       },
     },

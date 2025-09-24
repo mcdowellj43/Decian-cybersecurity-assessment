@@ -52,20 +52,22 @@ const sendErrorProd = (err: CustomError, res: Response) => {
 };
 
 // Handle specific error types
-const handleCastErrorDB = (err: any): AppError => {
-  const message = `Invalid ${err.path}: ${err.value}`;
+const handleCastErrorDB = (err: Record<string, unknown>): AppError => {
+  const message = `Invalid ${String(err.path)}: ${String(err.value)}`;
   return new AppError(message, 400);
 };
 
-const handleDuplicateFieldsDB = (err: any): AppError => {
-  const value = err.errmsg?.match(/(["'])(\\?.)*?\1/)?.[0];
+const handleDuplicateFieldsDB = (err: Record<string, unknown>): AppError => {
+  const raw = typeof err.errmsg === 'string' ? err.errmsg : '';
+  const value = raw.match(/(["'])(\\?.)*?\1/)?.[0];
   const message = `Duplicate field value: ${value}. Please use another value!`;
   return new AppError(message, 400);
 };
 
-const handleValidationErrorDB = (err: any): AppError => {
-  const errors = Object.values(err.errors).map((el: any) => el.message);
-  const message = `Invalid input data. ${errors.join('. ')}`;
+const handleValidationErrorDB = (err: Record<string, unknown>): AppError => {
+  const errorsRecord = err.errors as Record<string, { message: string }>;
+  const messages = Object.values(errorsRecord).map((el) => el.message);
+  const message = `Invalid input data. ${messages.join('. ')}`;
   return new AppError(message, 400);
 };
 
@@ -78,9 +80,9 @@ const handleJWTExpiredError = (): AppError =>
 // Main error handling middleware
 export const errorHandler = (
   err: CustomError,
-  req: Request,
+  _req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ) => {
   err.statusCode = err.statusCode || 500;
   err.status = err.status || 'error';
@@ -95,15 +97,23 @@ export const errorHandler = (
     if (err.name === 'ValidationError') error = handleValidationErrorDB(error);
     if (err.name === 'JsonWebTokenError') error = handleJWTError();
     if (err.name === 'TokenExpiredError') error = handleJWTExpiredError();
-    if ((err as any).code === 11000) error = handleDuplicateFieldsDB(error);
+    if ((err as { code?: number }).code === 11000) {
+      error = handleDuplicateFieldsDB(error);
+    }
 
     sendErrorProd(error, res);
   }
 };
 
 // Async error wrapper
-export const catchAsync = (fn: Function) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch(next);
+type AsyncRouteHandler = (req: Request, res: Response, next: NextFunction) => Promise<unknown>;
+
+export const catchAsync = (fn: AsyncRouteHandler): AsyncRouteHandler => {
+  return async (req, res, next) => {
+    try {
+      await fn(req, res, next);
+    } catch (error) {
+      next(error);
+    }
   };
 };

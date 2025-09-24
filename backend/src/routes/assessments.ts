@@ -8,6 +8,7 @@ import {
   stopAssessment,
   deleteAssessment,
   getAssessmentStats,
+  enqueueAssessmentJobs,
 } from '@/controllers/assessmentController';
 import { UserRole } from '@prisma/client';
 
@@ -50,6 +51,13 @@ router.get('/:id', getAssessmentById);
  * @access  Private (USER+) - Agents will use API keys
  */
 router.put('/:id/results', requireRole(UserRole.USER), submitAssessmentResults);
+
+/**
+ * @route   POST /api/assessments/:assessmentId/enqueue
+ * @desc    Enqueue jobs for an assessment
+ * @access  Private (USER+)
+ */
+router.post('/:assessmentId/enqueue', requireRole(UserRole.USER), enqueueAssessmentJobs);
 
 /**
  * @route   POST /api/assessments/:id/stop
