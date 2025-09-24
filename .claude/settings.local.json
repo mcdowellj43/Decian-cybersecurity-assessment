@@ -39,7 +39,12 @@
       "Bash(./test-downloaded-agent.exe --help)",
       "Bash(./test-downloaded-agent.exe setup)",
       "Read(//c/Users/mcdow/**)",
-      "Bash(./test-fixed-agent.exe:*)"
+      "Bash(./test-fixed-agent.exe:*)",
+      "Bash(./decian-agent.exe setup --help)",
+      "Bash(./decian-agent.exe setup --server \"http://localhost:3001\" --org-id \"cmfy7ihi10000u38kcab8sq4r\" --enroll-token \"8e93ebe18fc51f45dabbce87b2e4d9d6\" --verbose)",
+      "Bash(./decian-agent.exe status)",
+      "Bash(./decian-agent.exe run --verbose)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []
