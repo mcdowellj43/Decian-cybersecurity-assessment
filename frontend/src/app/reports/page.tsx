@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/Button';
 import { RiskIndicator } from '@/components/ui/RiskIndicator';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useReports } from '@/hooks/useReports';
-import { Report } from '@/services/reportApi';
+import { useAssessments } from '@/hooks/useAssessments';
+import { Report, reportApi } from '@/services/reportApi';
+import { useState } from 'react';
 import {
   FileText,
   Download,
@@ -17,7 +19,8 @@ import {
   PlusCircle,
   MoreVertical,
   Printer,
-  Mail
+  Mail,
+  X
 } from 'lucide-react';
 
 function LoadingSkeleton() {
@@ -115,7 +118,95 @@ function ReportCard({ report, onDownload }: { report: Report; onDownload: (repor
   );
 }
 
-function EmptyState() {
+function GenerateReportModal({
+  isOpen,
+  onClose,
+  onGenerate
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onGenerate: (assessmentId: string) => void;
+}) {
+  const { assessments, isLoading } = useAssessments({ status: 'COMPLETED' });
+  const [selectedAssessmentId, setSelectedAssessmentId] = useState<string>('');
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAssessmentId) return;
+
+    await onGenerate(selectedAssessmentId);
+    onClose();
+    setSelectedAssessmentId('');
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-md w-full">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-900">Generate Security Report</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Completed Assessment
+            </label>
+            {isLoading ? (
+              <div className="text-center py-4">Loading assessments...</div>
+            ) : assessments.length === 0 ? (
+              <div className="text-center py-8">
+                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                <p className="text-gray-600 text-sm">No completed assessments found</p>
+                <p className="text-gray-500 text-xs">Run an assessment first to generate reports</p>
+              </div>
+            ) : (
+              <select
+                value={selectedAssessmentId}
+                onChange={(e) => setSelectedAssessmentId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                <option value="">Choose an assessment...</option>
+                {assessments.map((assessment) => (
+                  <option key={assessment.id} value={assessment.id}>
+                    {assessment.agent?.hostname || 'Unknown'} - {new Date(assessment.createdAt).toLocaleDateString()}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div className="flex space-x-3 pt-4">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              className="flex-1"
+              disabled={!selectedAssessmentId || assessments.length === 0}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Generate Report
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ onGenerateReport }: { onGenerateReport: () => void }) {
   return (
     <Card className="border-dashed border-2 border-gray-300">
       <CardContent className="p-12">
@@ -128,7 +219,7 @@ function EmptyState() {
             </p>
           </div>
           <div className="space-x-3">
-            <Button variant="primary">
+            <Button variant="primary" onClick={onGenerateReport}>
               <PlusCircle className="h-4 w-4 mr-2" />
               Generate Report
             </Button>
@@ -141,7 +232,8 @@ function EmptyState() {
 }
 
 export default function ReportsPage() {
-  const { reports, isLoading, error, downloadHTML } = useReports();
+  const { reports, isLoading, error, downloadHTML, refetch } = useReports();
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
 
   // Calculate this month's reports
   const thisMonth = new Date();
@@ -158,6 +250,30 @@ export default function ReportsPage() {
       console.error('Failed to download report:', error);
       // You could add toast notification here
     }
+  };
+
+  const handleGenerateReport = async (assessmentId: string) => {
+    try {
+      const report = await reportApi.generate({
+        assessmentId,
+        title: `Security Assessment Report - ${new Date().toLocaleDateString()}`,
+        includeDetails: true,
+        includeExecutiveSummary: true
+      });
+
+      // Refresh the reports list
+      await refetch();
+
+      // Auto-download the new report
+      await downloadHTML(report.id);
+    } catch (error) {
+      console.error('Failed to generate report:', error);
+      // You could add toast notification here
+    }
+  };
+
+  const handleShowGenerateModal = () => {
+    setShowGenerateModal(true);
   };
 
   return (
@@ -180,7 +296,7 @@ export default function ReportsPage() {
               <Printer className="h-4 w-4 mr-2" />
               Print
             </Button>
-            <Button variant="primary">
+            <Button variant="primary" onClick={handleShowGenerateModal}>
               <PlusCircle className="h-4 w-4 mr-2" />
               Generate Report
             </Button>
@@ -261,7 +377,7 @@ export default function ReportsPage() {
         ) : isLoading ? (
           <LoadingSkeleton />
         ) : reports.length === 0 ? (
-          <EmptyState />
+          <EmptyState onGenerateReport={handleShowGenerateModal} />
         ) : (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -301,6 +417,13 @@ export default function ReportsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Generate Report Modal */}
+        <GenerateReportModal
+          isOpen={showGenerateModal}
+          onClose={() => setShowGenerateModal(false)}
+          onGenerate={handleGenerateReport}
+        />
       </div>
     </ProtectedRoute>
   );

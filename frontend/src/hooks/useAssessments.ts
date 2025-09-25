@@ -66,7 +66,16 @@ export function useAssessments(params: GetAssessmentsParams = {}): UseAssessment
   const createAssessment = async (data: CreateAssessmentRequest) => {
     try {
       setError(null);
-      await assessmentApi.create(data);
+      // Step 1: Create the assessment
+      const assessment = await assessmentApi.create(data);
+
+      // Step 2: Enqueue jobs for the created assessment
+      await assessmentApi.enqueueJobs(assessment.id, {
+        agentIds: [data.agentId],
+        modules: data.modules,
+        options: data.metadata
+      });
+
       await refetch(); // Refresh the list after creating
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create assessment');

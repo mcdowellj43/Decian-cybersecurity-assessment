@@ -268,21 +268,16 @@ function CreateAssessmentModal({
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="font-medium text-blue-900 mb-2">Assessment Modules</h4>
             <div className="text-sm text-blue-800 space-y-1">
-              <div>• Accounts Bypass Password Policy</div>
-              <div>• Domain Controller Open Ports Check</div>
-              <div>• DNS Configuration Check</div>
-              <div>• End-of-Life Software Check</div>
-              <div>• Enabled Inactive Accounts</div>
-              <div>• Network Protocols Check</div>
-              <div>• PowerShell Execution Policy Check</div>
-              <div>• Service Accounts Domain Admin</div>
-              <div>• Privileged Accounts No Expire</div>
-              <div>• Windows Feature Security Check</div>
-              <div>• Windows Firewall Status Check</div>
-              <div>• Windows Update Check</div>
-              <div>• Password Crack</div>
-              <div>• Kerberoasted Accounts</div>
-              <div>• SMB Signing Check</div>
+              <div>• Misconfiguration Discovery</div>
+              <div>• Weak Password Detection</div>
+              <div>• Data Exposure Check</div>
+              <div>• Phishing Exposure Indicators</div>
+              <div>• Patch & Update Status</div>
+              <div>• Elevated Permissions Report</div>
+              <div>• Excessive Sharing Risks</div>
+              <div>• Password Policy Weakness</div>
+              <div>• Open Service/Port Identification</div>
+              <div>• User Behavior Risk Signals</div>
             </div>
           </div>
 

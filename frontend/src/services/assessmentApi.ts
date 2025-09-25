@@ -66,6 +66,12 @@ export interface CreateAssessmentRequest {
   metadata?: Record<string, any>;
 }
 
+export interface EnqueueJobsRequest {
+  agentIds: string[];
+  modules: CheckType[];
+  options?: Record<string, any>;
+}
+
 export interface SubmitResultsRequest {
   results: {
     checkType: CheckType;
@@ -168,6 +174,17 @@ export const assessmentApi = {
   delete: async (assessmentId: string): Promise<void> => {
     try {
       await apiClient.delete(`/assessments/${assessmentId}`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  /**
+   * Enqueue jobs for an assessment
+   */
+  enqueueJobs: async (assessmentId: string, data: EnqueueJobsRequest): Promise<void> => {
+    try {
+      await apiClient.post(`/assessments/${assessmentId}/enqueue`, data);
     } catch (error) {
       throw handleApiError(error);
     }
