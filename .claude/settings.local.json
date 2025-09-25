@@ -54,7 +54,10 @@
       "Bash(./workflow-test-agent.exe setup --server \"http://localhost:3001\" --org-id \"cmfye680q0000u3cwjw101lyh\" --enroll-token \"fa8957e97656a9a2c19dcfe72d41521f\" --verbose)",
       "Bash(./workflow-test-agent.exe status:*)",
       "Bash(./workflow-test-agent.exe run --verbose)",
-      "Bash(PRISMA_STUDIO_PORT=5557 npx prisma studio)"
+      "Bash(PRISMA_STUDIO_PORT=5557 npx prisma studio)",
+      "Bash(./test-build.exe --help)",
+      "Bash(agents/dist/decian-agent-cmfyvcr58000ju3ook4uxuzfr.exe --help)",
+      "Bash(\"/c/Users/mcdow/Downloads/decian-agent-downloaded.exe\" --help)"
     ],
     "deny": [],
     "ask": []

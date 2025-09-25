@@ -13,8 +13,8 @@ import (
 
 var setupCmd = &cobra.Command{
 	Use:   "setup",
-	Short: "Interactive setup and registration with the jobs API",
-	Long: `Register the agent with the Decian jobs API using a one-time enrollment token.
+	Short: "Interactive setup and registration with the Decian platform",
+	Long: `Register the agent with the Decian platform using a one-time enrollment token.
 
 This command will:
 1. Validate the server URL and enrollment token
@@ -26,7 +26,7 @@ This command will:
 func init() {
 	rootCmd.AddCommand(setupCmd)
 
-	setupCmd.Flags().String("server", "", "Jobs API server URL")
+	setupCmd.Flags().String("server", "", "Decian API server URL")
 	setupCmd.Flags().String("org-id", "", "Organization identifier")
 	setupCmd.Flags().String("enroll-token", "", "One-time enrollment token")
 	setupCmd.Flags().String("hostname", "", "Override hostname for registration")

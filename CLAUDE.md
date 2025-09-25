@@ -266,14 +266,72 @@ Database schema sample included.
 
  - when testing the workflow follow the process, sign into the dashboard with mcdowellj@decian.com and Jakeandanna1! as the user/pass
  - if you get a login failed, register the username, password, and organization as Decian
- - then download the agent
+ - then download the agent to the folder C:\users\mcdow\downloads
+ - list the commands available for the agent, that are supported
  - register the agent
  - verify the agent registered correctly
  - verify the agent is looking for jobs
  - queue an assessment from the dashboard for the agent you registered
- - verify the jobs request made it to the agent
- - verify the agent accepted the request
- - verify the agent runs the assessment because the dashboard sent a job
  - verify the assessment ran correctly
- - verify the agent packaged the results correctly
- - STOP when you hit an error, document what commands worked to test the workflow, then what didn't, then list 3 reason why you expect it didn't, then document it in markdown file called test-results.md located at the project root
+ - 
+ - need to test the manual workflow and make sure that is rock solid so we can provide proper documentation on how to use it to give to other people. Currently the agent downloads correctly, but need to figure out how/where/if we can access the information we need to properly register the agent.
+
+
+ Agent Setup and Dashboard Improvements Project
+
+   1. Agent Setup Values Required
+
+  Based on the analysis, here are the required values to set up an agent (once downloaded):
+
+  Required Parameters:
+  - --server - Decian API server URL (e.g., "http://localhost:3001")
+  - --org-id - Organization identifier (CUID from Organizations table)
+  - --enroll-token - One-time enrollment token (32-character hex string)
+
+  Optional Parameters:
+  - --hostname - Override hostname (defaults to system hostname)
+  - --labels - Key-value labels (e.g., "env=prod,role=web")
+  - --capacity - Max concurrent jobs (defaults to 1)
+  - --install-service - Install as Windows service (not implemented yet)
+
+  2. Where Values Are Stored
+
+  Backend Database (Prisma/SQLite):
+  - Organizations: organizations table with id, name, settings
+  - Enrollment Tokens: enrollment_tokens table with tokenHash, orgId, expiresAt, usedAt
+  - Agent Registration: agents table stores registered agent details
+
+  Agent Local Storage:
+  - Config stored in %PROGRAMDATA%/$APPDATA after successful registration
+  - Contains: agentId, agentSecret, server URL, org ID
+
+  Current Backend Implementation:
+  - Organizations auto-created during user registration (authController.ts:38-43)
+  - Enrollment tokens auto-generated with 15-minute TTL (enrollmentToken.ts:10-31)
+  - Tokens returned to frontend after registration/login
+
+● 3. Missing Pieces for Dashboard Visibility
+
+  Currently, the frontend doesn't have easy access to:
+  - Organization details and enrollment tokens
+  - Organization management (create/view/edit orgs)
+  - Current enrollment token status/regeneration
+  - Agent setup command generation
+
+  4. Next Steps Implementation Plan
+
+  We need to build:
+
+  Backend APIs:
+  - GET /api/organizations - List/view organizations
+  - POST /api/organizations - Create organizations
+  - GET /api/organizations/:id/enrollment-token - Get current token
+  - POST /api/organizations/:id/enrollment-token/regenerate - Create new token
+
+  Frontend Components:
+  - Organization management page
+  - Agent setup instructions/command generator
+  - Enrollment token display with copy-to-clipboard
+  - Organization creation form
+
+  

@@ -143,6 +143,14 @@ function EmptyState() {
 export default function ReportsPage() {
   const { reports, isLoading, error, downloadHTML } = useReports();
 
+  // Calculate this month's reports
+  const thisMonth = new Date();
+  const thisMonthReports = reports.filter(report => {
+    const reportDate = new Date(report.createdAt);
+    return reportDate.getMonth() === thisMonth.getMonth() &&
+           reportDate.getFullYear() === thisMonth.getFullYear();
+  }).length;
+
   const handleDownload = async (reportId: string) => {
     try {
       await downloadHTML(reportId);
@@ -208,7 +216,7 @@ export default function ReportsPage() {
         </Card>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card className="bg-gradient-to-r from-blue-50 to-blue-100">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -229,38 +237,10 @@ export default function ReportsPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-600">This Month</p>
                   <p className="text-3xl font-bold text-gray-900">
-                    {isLoading ? '-' : '8'}
+                    {isLoading ? '-' : thisMonthReports}
                   </p>
                 </div>
                 <Calendar className="h-12 w-12 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-r from-purple-50 to-indigo-50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Shared</p>
-                  <p className="text-3xl font-bold text-gray-900">
-                    {isLoading ? '-' : '12'}
-                  </p>
-                </div>
-                <Share2 className="h-12 w-12 text-purple-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-r from-orange-50 to-amber-50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Downloaded</p>
-                  <p className="text-3xl font-bold text-gray-900">
-                    {isLoading ? '-' : '24'}
-                  </p>
-                </div>
-                <Download className="h-12 w-12 text-orange-600" />
               </div>
             </CardContent>
           </Card>

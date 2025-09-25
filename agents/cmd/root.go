@@ -37,7 +37,7 @@ func init() {
 
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.decian-agent.yaml)")
-        rootCmd.PersistentFlags().String("server", "", "Jobs API server URL")
+        rootCmd.PersistentFlags().String("server", "", "Decian API server URL")
         rootCmd.PersistentFlags().String("org-id", "", "Organization identifier")
         rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose logging")
         rootCmd.PersistentFlags().Bool("dry-run", false, "Run assessment without sending results to dashboard")

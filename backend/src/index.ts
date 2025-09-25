@@ -245,6 +245,8 @@ app.get('/api', (req, res) => {
       agents: '/api/agents',
       assessments: '/api/assessments',
       reports: '/api/reports',
+      organizations: '/api/organizations',
+      jobs: '/api/jobs',
       docs: '/api/docs'
     }
   });
@@ -277,6 +279,9 @@ const startServer = async () => {
     const jobRoutes = (await import('@/routes/jobs')).default;
     console.log('Job routes imported successfully');
 
+    const organizationRoutes = (await import('@/routes/organizations')).default;
+    console.log('Organization routes imported successfully');
+
     console.log('All routes imported, mounting...');
 
     // Direct routes are already registered above
@@ -292,6 +297,8 @@ const startServer = async () => {
     app.use('/api/reports', reportRoutes);
     console.log('Mounting job routes:', typeof jobRoutes);
     app.use('/api/jobs', jobRoutes);
+    console.log('Mounting organization routes:', typeof organizationRoutes);
+    app.use('/api/organizations', organizationRoutes);
 
     console.log('All routes mounted successfully, starting server...');
 

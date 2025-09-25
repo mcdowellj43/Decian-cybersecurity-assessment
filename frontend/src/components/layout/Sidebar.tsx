@@ -13,10 +13,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Activity,
+  Building2,
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Overview', href: '/', icon: Home },
+  { name: 'Organizations', href: '/organizations', icon: Building2 },
   { name: 'Assessments', href: '/assessments', icon: Shield },
   { name: 'Agents', href: '/agents', icon: Activity },
   { name: 'Reports', href: '/reports', icon: FileText },

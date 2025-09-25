@@ -139,5 +139,30 @@ export const validateSchema = (schema: z.ZodSchema) => {
   };
 };
 
+// Organization validation schemas
+export const createOrganizationSchema = z.object({
+  name: z
+    .string()
+    .min(1, 'Organization name is required')
+    .max(255, 'Organization name must be less than 255 characters'),
+
+  settings: z
+    .record(z.any())
+    .optional()
+    .default({}),
+});
+
+export const updateOrganizationSchema = z.object({
+  name: z
+    .string()
+    .min(1, 'Organization name is required')
+    .max(255, 'Organization name must be less than 255 characters')
+    .optional(),
+
+  settings: z
+    .record(z.any())
+    .optional(),
+});
+
 // Alias for validateSchema for consistency
 export const validateRequest = validateSchema;
