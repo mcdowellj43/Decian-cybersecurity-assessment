@@ -3,6 +3,8 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { RiskIndicator } from '@/components/ui/RiskIndicator';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { useReports } from '@/hooks/useReports';
+import { Report } from '@/services/reportApi';
 import {
   FileText,
   Download,
@@ -41,7 +43,15 @@ function LoadingSkeleton() {
   );
 }
 
-function ReportCard({ report }: { report: any }) {
+function ReportCard({ report, onDownload }: { report: Report; onDownload: (reportId: string) => void }) {
+  const handleDownload = async () => {
+    try {
+      await onDownload(report.id);
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
+  };
+
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-6">
@@ -52,29 +62,35 @@ function ReportCard({ report }: { report: any }) {
                 <FileText className="h-5 w-5 text-blue-600" />
                 <h3 className="font-semibold text-gray-900">{report.title}</h3>
               </div>
-              <p className="text-sm text-gray-600">{report.description}</p>
+              <p className="text-sm text-gray-600">
+                Assessment #{report.assessmentId.substring(0, 8)} - {report.assessment?.agent?.hostname || 'Unknown'}
+              </p>
             </div>
             <div className="flex items-center space-x-1">
-              <RiskIndicator score={report.riskScore} size="sm" />
+              {report.assessment?.overallRiskScore && (
+                <RiskIndicator score={report.assessment.overallRiskScore} size="sm" />
+              )}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-600">Created:</span>
-              <span className="text-gray-900">{report.createdAt}</span>
+              <span className="text-gray-900">
+                {new Date(report.createdAt).toLocaleDateString()}
+              </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Type:</span>
-              <span className="text-gray-900">{report.type}</span>
+              <span className="text-gray-600">Version:</span>
+              <span className="text-gray-900">{report.templateVersion}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Assessment:</span>
-              <span className="text-gray-900">{report.assessmentId}</span>
+              <span className="text-gray-900">#{report.assessmentId.substring(0, 8)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Size:</span>
-              <span className="text-gray-900">{report.size}</span>
+              <span className="text-gray-600">Organization:</span>
+              <span className="text-gray-900">{report.organizationName}</span>
             </div>
           </div>
 
@@ -83,7 +99,7 @@ function ReportCard({ report }: { report: any }) {
               <Eye className="h-4 w-4 mr-1" />
               Preview
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleDownload}>
               <Download className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="sm">
@@ -124,44 +140,17 @@ function EmptyState() {
   );
 }
 
-// Mock data for demonstration
-const mockReports = [
-  {
-    id: '1',
-    title: 'Executive Security Summary',
-    description: 'High-level security overview for leadership team',
-    type: 'Executive',
-    riskScore: 75,
-    createdAt: '2024-03-15',
-    assessmentId: 'ASS-001',
-    size: '2.3 MB'
-  },
-  {
-    id: '2',
-    title: 'Technical Assessment Report',
-    description: 'Detailed technical findings and recommendations',
-    type: 'Technical',
-    riskScore: 82,
-    createdAt: '2024-03-14',
-    assessmentId: 'ASS-002',
-    size: '5.7 MB'
-  },
-  {
-    id: '3',
-    title: 'Compliance Audit Report',
-    description: 'Regulatory compliance status and gaps',
-    type: 'Compliance',
-    riskScore: 45,
-    createdAt: '2024-03-12',
-    assessmentId: 'ASS-003',
-    size: '3.1 MB'
-  }
-];
-
 export default function ReportsPage() {
-  const reports = mockReports; // This would come from an API call
-  const isLoading = false;
-  const error = null;
+  const { reports, isLoading, error, downloadHTML } = useReports();
+
+  const handleDownload = async (reportId: string) => {
+    try {
+      await downloadHTML(reportId);
+    } catch (error) {
+      console.error('Failed to download report:', error);
+      // You could add toast notification here
+    }
+  };
 
   return (
     <ProtectedRoute>
@@ -278,7 +267,18 @@ export default function ReportsPage() {
         </div>
 
         {/* Reports Grid */}
-        {isLoading ? (
+        {error ? (
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-6">
+              <div className="text-center">
+                <p className="text-red-800">Failed to load reports: {error}</p>
+                <Button variant="outline" onClick={() => window.location.reload()} className="mt-4">
+                  Retry
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : isLoading ? (
           <LoadingSkeleton />
         ) : reports.length === 0 ? (
           <EmptyState />
@@ -293,7 +293,7 @@ export default function ReportsPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {reports.map((report) => (
-                <ReportCard key={report.id} report={report} />
+                <ReportCard key={report.id} report={report} onDownload={handleDownload} />
               ))}
             </div>
           </div>

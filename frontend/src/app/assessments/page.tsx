@@ -6,6 +6,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAssessments } from '@/hooks/useAssessments';
 import { useAgents } from '@/hooks/useAgents';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Shield,
   Play,
@@ -59,6 +60,12 @@ function ErrorState({ error }: { error: string }) {
 }
 
 function AssessmentCard({ assessment }: { assessment: any }) {
+  const router = useRouter();
+
+  const handleViewDetails = () => {
+    router.push('/reports');
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'COMPLETED':
@@ -139,7 +146,7 @@ function AssessmentCard({ assessment }: { assessment: any }) {
           </div>
 
           <div className="flex space-x-2 pt-2">
-            <Button variant="outline" size="sm" className="flex-1">
+            <Button variant="outline" size="sm" className="flex-1" onClick={handleViewDetails}>
               <FileText className="h-4 w-4 mr-1" />
               View Details
             </Button>
