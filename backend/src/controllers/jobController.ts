@@ -250,12 +250,27 @@ const maybeUpdateAssessment = async (job: { id: string; payload: unknown }, stat
   // If job succeeded, copy results from job_results to assessment_results
   if (status === JobStatus.SUCCEEDED) {
     try {
+      logger.info('Starting job results copy process', { jobId: job.id, assessmentId });
+
       const jobResult = await prisma.jobResult.findUnique({
         where: { jobId: job.id },
       });
 
+      logger.info('Job result found', {
+        jobResultExists: !!jobResult,
+        summaryExists: !!(jobResult?.summary),
+        jobId: job.id
+      });
+
       if (jobResult && jobResult.summary) {
         const summary = jobResult.summary as any;
+
+        logger.info('Processing job result summary', {
+          hasResults: !!(summary.results),
+          resultsIsArray: Array.isArray(summary.results),
+          resultsLength: Array.isArray(summary.results) ? summary.results.length : 0,
+          overallRiskScore: summary.overallRiskScore
+        });
 
         // Extract individual module results from job summary
         if (summary.results && Array.isArray(summary.results)) {
@@ -265,20 +280,42 @@ const maybeUpdateAssessment = async (job: { id: string; payload: unknown }, stat
             resultData: JSON.stringify(result.data || {}),
             riskScore: result.riskScore || 0,
             riskLevel: result.riskLevel || 'LOW',
-            createdAt: new Date(),
+            // Remove createdAt - let Prisma handle @default(now()) automatically
           }));
+
+          logger.info('Mapped assessment results', {
+            resultCount: assessmentResults.length,
+            checkTypes: assessmentResults.map(r => r.checkType),
+            riskLevels: assessmentResults.map(r => r.riskLevel)
+          });
 
           // Create assessment results
           if (assessmentResults.length > 0) {
-            await prisma.assessmentResult.createMany({
-              data: assessmentResults,
-              skipDuplicates: true,
-            });
+            logger.info('Creating assessment results in database', { count: assessmentResults.length });
+
+            try {
+              const created = await prisma.assessmentResult.createMany({
+                data: assessmentResults,
+                skipDuplicates: true,
+              });
+
+              logger.info('Assessment results created successfully', { createdCount: created.count });
+            } catch (createError) {
+              logger.error('Failed at createMany operation', {
+                error: createError instanceof Error ? createError.message : createError,
+                stack: createError instanceof Error ? createError.stack : undefined,
+                dataCount: assessmentResults.length,
+                sampleData: assessmentResults[0] // Log first item for debugging
+              });
+              throw createError; // Re-throw to trigger outer catch
+            }
           }
         }
 
         // Update overall risk score if available
         if (summary.overallRiskScore && typeof summary.overallRiskScore === 'number') {
+          logger.info('Updating overall risk score', { overallRiskScore: summary.overallRiskScore });
+
           await prisma.assessment.updateMany({
             where: { id: assessmentId },
             data: {
@@ -286,9 +323,18 @@ const maybeUpdateAssessment = async (job: { id: string; payload: unknown }, stat
             },
           });
         }
+
+        logger.info('Job results copy process completed successfully', { jobId: job.id, assessmentId });
+      } else {
+        logger.warn('No job result or summary found', { jobId: job.id, assessmentId });
       }
     } catch (error) {
-      logger.error('Failed to copy job results to assessment results', { error, jobId: job.id, assessmentId });
+      logger.error('Failed to copy job results to assessment results', {
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined,
+        jobId: job.id,
+        assessmentId
+      });
     }
   }
 };
