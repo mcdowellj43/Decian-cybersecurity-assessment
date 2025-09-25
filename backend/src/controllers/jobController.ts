@@ -291,21 +291,51 @@ const maybeUpdateAssessment = async (job: { id: string; payload: unknown }, stat
 
           // Create assessment results
           if (assessmentResults.length > 0) {
-            logger.info('Creating assessment results in database', { count: assessmentResults.length });
+            logger.info('Creating assessment results in database', {
+              count: assessmentResults.length,
+              assessmentId,
+              allData: assessmentResults // Log all data for debugging
+            });
+
+            // Test if assessment exists first
+            const assessmentExists = await prisma.assessment.findUnique({
+              where: { id: assessmentId }
+            });
+
+            logger.info('Assessment existence check', {
+              assessmentId,
+              exists: !!assessmentExists,
+              assessmentStatus: assessmentExists?.status
+            });
+
+            if (!assessmentExists) {
+              logger.error('Assessment not found - cannot create results', { assessmentId });
+              throw new Error(`Assessment ${assessmentId} not found`);
+            }
 
             try {
-              const created = await prisma.assessmentResult.createMany({
-                data: assessmentResults,
+              logger.info('About to call prisma.assessmentResult.createMany', {
+                operation: 'createMany',
                 skipDuplicates: true,
+                dataCount: assessmentResults.length
               });
 
-              logger.info('Assessment results created successfully', { createdCount: created.count });
+              const created = await prisma.assessmentResult.createMany({
+                data: assessmentResults,
+              });
+
+              logger.info('Assessment results created successfully', {
+                createdCount: created.count,
+                requestedCount: assessmentResults.length
+              });
             } catch (createError) {
               logger.error('Failed at createMany operation', {
                 error: createError instanceof Error ? createError.message : createError,
                 stack: createError instanceof Error ? createError.stack : undefined,
+                code: (createError as any)?.code,
+                meta: (createError as any)?.meta,
                 dataCount: assessmentResults.length,
-                sampleData: assessmentResults[0] // Log first item for debugging
+                fullData: assessmentResults // Log all data for debugging
               });
               throw createError; // Re-throw to trigger outer catch
             }
