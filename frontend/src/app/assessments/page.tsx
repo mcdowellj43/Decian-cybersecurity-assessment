@@ -5,7 +5,8 @@ import { RiskIndicator } from '@/components/ui/RiskIndicator';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAssessments } from '@/hooks/useAssessments';
 import { useAgents } from '@/hooks/useAgents';
-import { useState } from 'react';
+import { reportApi } from '@/services/reportApi';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Shield,
@@ -20,7 +21,8 @@ import {
   MoreVertical,
   Loader2,
   Server,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 
 function LoadingSkeleton() {
@@ -59,11 +61,73 @@ function ErrorState({ error }: { error: string }) {
   );
 }
 
-function AssessmentCard({ assessment }: { assessment: any }) {
+function AssessmentCard({ assessment, onDelete }: { assessment: any; onDelete: (id: string) => void }) {
   const router = useRouter();
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleViewDetails = () => {
     router.push('/reports');
+  };
+
+  const handleDelete = async () => {
+    if (window.confirm(`Are you sure you want to delete assessment #${assessment.id.substring(0, 8)}? This action cannot be undone.`)) {
+      await onDelete(assessment.id);
+      setShowDropdown(false);
+    }
+  };
+
+  const handleDownloadReport = async () => {
+    try {
+      // First try to get existing reports for this assessment
+      const reportsResponse = await reportApi.getReports({ assessmentId: assessment.id });
+
+      let reportId: string;
+
+      if (reportsResponse.reports.length > 0) {
+        // Use the most recent report
+        reportId = reportsResponse.reports[0].id;
+      } else {
+        // Generate a new report
+        const newReport = await reportApi.generate({
+          assessmentId: assessment.id,
+          title: `Security Assessment Report - ${new Date().toLocaleDateString()}`,
+          includeDetails: true,
+          includeExecutiveSummary: true
+        });
+        reportId = newReport.id;
+      }
+
+      // Download the report HTML
+      const htmlContent = await reportApi.downloadHTML(reportId);
+
+      // Create blob and download
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `assessment-report-${assessment.id.substring(0, 8)}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download report:', error);
+      alert('Failed to download report. Please try again.');
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -151,13 +215,28 @@ function AssessmentCard({ assessment }: { assessment: any }) {
               View Details
             </Button>
             {assessment.status === 'COMPLETED' && (
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" onClick={handleDownloadReport}>
                 <Download className="h-4 w-4" />
               </Button>
             )}
-            <Button variant="ghost" size="sm">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
+            <div className="relative" ref={dropdownRef}>
+              <Button variant="ghost" size="sm" onClick={() => setShowDropdown(!showDropdown)}>
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+              {showDropdown && (
+                <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
+                  <div className="py-1">
+                    <button
+                      onClick={handleDelete}
+                      className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Assessment
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>
@@ -459,7 +538,7 @@ export default function AssessmentsPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {assessments.slice(0, 6).map((assessment) => (
-                <AssessmentCard key={assessment.id} assessment={assessment} />
+                <AssessmentCard key={assessment.id} assessment={assessment} onDelete={deleteAssessment} />
               ))}
             </div>
           </div>
