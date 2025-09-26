@@ -12,7 +12,6 @@ import {
   Download,
   Eye,
   Calendar,
-  Building,
   Filter,
   Search,
   Share2,
@@ -362,6 +361,21 @@ export default function ReportsPage() {
           </Card>
         </div>
 
+        {/* Quick Actions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-center">
+              <Button variant="outline" className="justify-start">
+                <Mail className="h-4 w-4 mr-2" />
+                Email Report
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Reports Grid */}
         {error ? (
           <Card className="border-red-200 bg-red-50">
@@ -395,28 +409,6 @@ export default function ReportsPage() {
           </div>
         )}
 
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button variant="outline" className="justify-start">
-                <Building className="h-4 w-4 mr-2" />
-                Executive Summary
-              </Button>
-              <Button variant="outline" className="justify-start">
-                <FileText className="h-4 w-4 mr-2" />
-                Technical Report
-              </Button>
-              <Button variant="outline" className="justify-start">
-                <Mail className="h-4 w-4 mr-2" />
-                Email Report
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Generate Report Modal */}
         <GenerateReportModal
