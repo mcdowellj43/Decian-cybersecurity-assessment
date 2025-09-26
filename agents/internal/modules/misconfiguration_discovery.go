@@ -13,6 +13,7 @@ import (
 // MisconfigurationDiscoveryModule implements misconfiguration discovery assessment
 type MisconfigurationDiscoveryModule struct {
 	logger *logger.Logger
+	TargetAware
 }
 
 // NewMisconfigurationDiscoveryModule creates a new misconfiguration discovery module

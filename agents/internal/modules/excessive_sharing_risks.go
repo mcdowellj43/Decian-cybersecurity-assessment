@@ -15,6 +15,7 @@ import (
 // ExcessiveSharingRisksModule implements excessive sharing and collaboration risks assessment
 type ExcessiveSharingRisksModule struct {
 	logger *logger.Logger
+	TargetAware
 }
 
 // NewExcessiveSharingRisksModule creates a new excessive sharing risks module
@@ -280,11 +281,11 @@ func (m *ExcessiveSharingRisksModule) checkCloudStorageSync() ([]string, float64
 
 	// Check for cloud storage applications
 	cloudStorageApps := map[string]string{
-		"OneDrive":  filepath.Join(userProfile, "OneDrive"),
-		"Dropbox":   filepath.Join(userProfile, "Dropbox"),
+		"OneDrive":     filepath.Join(userProfile, "OneDrive"),
+		"Dropbox":      filepath.Join(userProfile, "Dropbox"),
 		"Google Drive": filepath.Join(userProfile, "Google Drive"),
-		"Box":       filepath.Join(userProfile, "Box"),
-		"iCloud":    filepath.Join(userProfile, "iCloudDrive"),
+		"Box":          filepath.Join(userProfile, "Box"),
+		"iCloud":       filepath.Join(userProfile, "iCloudDrive"),
 	}
 
 	activeSyncApps := 0

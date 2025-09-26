@@ -16,6 +16,7 @@ import (
 // DataExposureCheckModule implements data exposure assessment
 type DataExposureCheckModule struct {
 	logger *logger.Logger
+	TargetAware
 }
 
 // NewDataExposureCheckModule creates a new data exposure check module
@@ -135,10 +136,10 @@ func (m *DataExposureCheckModule) checkExposedSensitiveFiles() ([]string, float6
 	// Sensitive file patterns to look for
 	sensitivePatterns := []string{
 		"*.key", "*.pem", "*.p12", "*.pfx", // Certificates and keys
-		"*.sql", "*.bak", "*.backup",       // Database files
-		"*.config", "*.ini", "*.conf",      // Configuration files
-		"*.log",                            // Log files
-		"*.csv", "*.xlsx",                  // Data exports
+		"*.sql", "*.bak", "*.backup", // Database files
+		"*.config", "*.ini", "*.conf", // Configuration files
+		"*.log",           // Log files
+		"*.csv", "*.xlsx", // Data exports
 	}
 
 	// Common exposed locations
@@ -300,9 +301,9 @@ func (m *DataExposureCheckModule) checkBrowserCredentials() ([]string, float64) 
 
 	// Browser credential database locations
 	browserPaths := map[string]string{
-		"Chrome":   filepath.Join(userProfile, "AppData", "Local", "Google", "Chrome", "User Data", "Default", "Login Data"),
-		"Edge":     filepath.Join(userProfile, "AppData", "Local", "Microsoft", "Edge", "User Data", "Default", "Login Data"),
-		"Firefox":  filepath.Join(userProfile, "AppData", "Roaming", "Mozilla", "Firefox", "Profiles"),
+		"Chrome":  filepath.Join(userProfile, "AppData", "Local", "Google", "Chrome", "User Data", "Default", "Login Data"),
+		"Edge":    filepath.Join(userProfile, "AppData", "Local", "Microsoft", "Edge", "User Data", "Default", "Login Data"),
+		"Firefox": filepath.Join(userProfile, "AppData", "Roaming", "Mozilla", "Firefox", "Profiles"),
 	}
 
 	for browser, path := range browserPaths {

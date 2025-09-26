@@ -15,6 +15,7 @@ import (
 // PhishingExposureIndicatorsModule implements phishing exposure assessment
 type PhishingExposureIndicatorsModule struct {
 	logger *logger.Logger
+	TargetAware
 }
 
 // NewPhishingExposureIndicatorsModule creates a new phishing exposure indicators module
