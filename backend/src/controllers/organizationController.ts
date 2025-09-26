@@ -81,6 +81,15 @@ export const createOrganization = catchAsync(async (req: Request, res: Response,
         name,
         settings: JSON.stringify(settings),
       },
+      include: {
+        _count: {
+          select: {
+            users: true,
+            agents: true,
+            assessments: true,
+          },
+        },
+      },
     });
 
     // Create initial enrollment token
