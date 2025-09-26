@@ -13,6 +13,7 @@ import (
 // ElevatedPermissionsReportModule implements elevated permissions assessment
 type ElevatedPermissionsReportModule struct {
 	logger *logger.Logger
+	TargetAware
 }
 
 // NewElevatedPermissionsReportModule creates a new elevated permissions report module

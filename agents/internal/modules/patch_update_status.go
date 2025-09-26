@@ -13,6 +13,7 @@ import (
 // PatchUpdateStatusModule implements patch and update status assessment
 type PatchUpdateStatusModule struct {
 	logger *logger.Logger
+	TargetAware
 }
 
 // NewPatchUpdateStatusModule creates a new patch update status module
@@ -263,14 +264,14 @@ func (m *PatchUpdateStatusModule) checkThirdPartySoftwareUpdates() ([]string, fl
 
 	// Common software to check for updates
 	_ = map[string]string{
-		"Adobe Flash Player":     `SOFTWARE\\Macromedia\\FlashPlayer`,
-		"Java":                   `SOFTWARE\\JavaSoft\\Java Runtime Environment`,
-		"Adobe Reader":           `SOFTWARE\\Adobe\\Acrobat Reader`,
-		"Google Chrome":          `SOFTWARE\\Google\\Chrome\\BLBeacon`,
-		"Mozilla Firefox":        `SOFTWARE\\Mozilla\\Mozilla Firefox`,
-		"VLC Media Player":       `SOFTWARE\\VideoLAN\\VLC`,
-		"WinRAR":                 `SOFTWARE\\WinRAR`,
-		"7-Zip":                  `SOFTWARE\\7-Zip`,
+		"Adobe Flash Player": `SOFTWARE\\Macromedia\\FlashPlayer`,
+		"Java":               `SOFTWARE\\JavaSoft\\Java Runtime Environment`,
+		"Adobe Reader":       `SOFTWARE\\Adobe\\Acrobat Reader`,
+		"Google Chrome":      `SOFTWARE\\Google\\Chrome\\BLBeacon`,
+		"Mozilla Firefox":    `SOFTWARE\\Mozilla\\Mozilla Firefox`,
+		"VLC Media Player":   `SOFTWARE\\VideoLAN\\VLC`,
+		"WinRAR":             `SOFTWARE\\WinRAR`,
+		"7-Zip":              `SOFTWARE\\7-Zip`,
 	}
 
 	// Check installed software in both 32-bit and 64-bit registry hives

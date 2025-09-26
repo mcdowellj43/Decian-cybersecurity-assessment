@@ -13,6 +13,7 @@ import (
 // PasswordPolicyWeaknessModule implements password policy weakness assessment
 type PasswordPolicyWeaknessModule struct {
 	logger *logger.Logger
+	TargetAware
 }
 
 // NewPasswordPolicyWeaknessModule creates a new password policy weakness module

@@ -5,8 +5,8 @@ import "time"
 // AssessmentResult represents the result of a single assessment check
 type AssessmentResult struct {
 	CheckType string                 `json:"checkType"`
-	RiskScore float64               `json:"riskScore"`
-	RiskLevel string                `json:"riskLevel"`
+	RiskScore float64                `json:"riskScore"`
+	RiskLevel string                 `json:"riskLevel"`
 	Data      map[string]interface{} `json:"data"`
 	Timestamp time.Time              `json:"timestamp"`
 	Duration  time.Duration          `json:"duration"`
@@ -34,6 +34,33 @@ type Module interface {
 	Validate() error
 }
 
+// TargetContext represents metadata about the current execution target.
+type TargetContext struct {
+	IP       string
+	Metadata map[string]interface{}
+}
+
+// TargetAwareModule is implemented by modules that need to know the current target.
+type TargetAwareModule interface {
+	Module
+	SetTarget(TargetContext)
+}
+
+// TargetAware provides a reusable TargetAwareModule implementation.
+type TargetAware struct {
+	target TargetContext
+}
+
+// SetTarget stores the current target context.
+func (t *TargetAware) SetTarget(target TargetContext) {
+	t.target = target
+}
+
+// Target returns the previously stored context.
+func (t *TargetAware) Target() TargetContext {
+	return t.target
+}
+
 // RiskLevel constants
 const (
 	RiskLevelLow      = "LOW"
@@ -44,16 +71,16 @@ const (
 
 // CheckType constants (new security-focused modules)
 const (
-	CheckTypeMisconfigurationDiscovery    = "MISCONFIGURATION_DISCOVERY"
-	CheckTypeWeakPasswordDetection        = "WEAK_PASSWORD_DETECTION"
-	CheckTypeDataExposureCheck           = "DATA_EXPOSURE_CHECK"
-	CheckTypePhishingExposureIndicators  = "PHISHING_EXPOSURE_INDICATORS"
-	CheckTypePatchUpdateStatus           = "PATCH_UPDATE_STATUS"
-	CheckTypeElevatedPermissionsReport   = "ELEVATED_PERMISSIONS_REPORT"
-	CheckTypeExcessiveSharingRisks       = "EXCESSIVE_SHARING_RISKS"
-	CheckTypePasswordPolicyWeakness      = "PASSWORD_POLICY_WEAKNESS"
-	CheckTypeOpenServicePortID           = "OPEN_SERVICE_PORT_ID"
-	CheckTypeUserBehaviorRiskSignals     = "USER_BEHAVIOR_RISK_SIGNALS"
+	CheckTypeMisconfigurationDiscovery  = "MISCONFIGURATION_DISCOVERY"
+	CheckTypeWeakPasswordDetection      = "WEAK_PASSWORD_DETECTION"
+	CheckTypeDataExposureCheck          = "DATA_EXPOSURE_CHECK"
+	CheckTypePhishingExposureIndicators = "PHISHING_EXPOSURE_INDICATORS"
+	CheckTypePatchUpdateStatus          = "PATCH_UPDATE_STATUS"
+	CheckTypeElevatedPermissionsReport  = "ELEVATED_PERMISSIONS_REPORT"
+	CheckTypeExcessiveSharingRisks      = "EXCESSIVE_SHARING_RISKS"
+	CheckTypePasswordPolicyWeakness     = "PASSWORD_POLICY_WEAKNESS"
+	CheckTypeOpenServicePortID          = "OPEN_SERVICE_PORT_ID"
+	CheckTypeUserBehaviorRiskSignals    = "USER_BEHAVIOR_RISK_SIGNALS"
 )
 
 // CalculateRiskScore calculates a risk score based on findings

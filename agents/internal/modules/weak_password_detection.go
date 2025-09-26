@@ -13,6 +13,7 @@ import (
 // WeakPasswordDetectionModule implements weak password detection assessment
 type WeakPasswordDetectionModule struct {
 	logger *logger.Logger
+	TargetAware
 }
 
 // NewWeakPasswordDetectionModule creates a new weak password detection module

@@ -15,6 +15,7 @@ import (
 // UserBehaviorRiskSignalsModule implements user behavior risk signals assessment
 type UserBehaviorRiskSignalsModule struct {
 	logger *logger.Logger
+	TargetAware
 }
 
 // NewUserBehaviorRiskSignalsModule creates a new user behavior risk signals module
@@ -186,10 +187,10 @@ func (m *UserBehaviorRiskSignalsModule) checkBrowserUsagePatterns() ([]string, f
 
 	// Check for browsers with potential privacy/security risks
 	riskyBrowserPaths := map[string]string{
-		"Tor Browser":    filepath.Join(userProfile, "Desktop", "Tor Browser"),
-		"Opera":          filepath.Join(userProfile, "AppData", "Roaming", "Opera Software"),
-		"Brave":          filepath.Join(userProfile, "AppData", "Local", "BraveSoftware"),
-		"Vivaldi":        filepath.Join(userProfile, "AppData", "Local", "Vivaldi"),
+		"Tor Browser": filepath.Join(userProfile, "Desktop", "Tor Browser"),
+		"Opera":       filepath.Join(userProfile, "AppData", "Roaming", "Opera Software"),
+		"Brave":       filepath.Join(userProfile, "AppData", "Local", "BraveSoftware"),
+		"Vivaldi":     filepath.Join(userProfile, "AppData", "Local", "Vivaldi"),
 	}
 
 	for browserName, browserPath := range riskyBrowserPaths {

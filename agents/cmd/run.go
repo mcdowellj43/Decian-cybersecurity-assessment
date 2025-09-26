@@ -3,13 +3,17 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"decian-agent/internal/client"
 	"decian-agent/internal/config"
 	"decian-agent/internal/logger"
 	"decian-agent/internal/modules"
+	"decian-agent/internal/network"
 	"github.com/spf13/cobra"
 )
 
@@ -167,10 +171,13 @@ func executeJob(job client.JobEnvelope, cfg *config.Config, log *logger.Logger) 
 }
 
 type assessmentJobPayload struct {
-	AssessmentID string
-	Modules      []string
-	Options      map[string]interface{}
-	Version      string
+	AssessmentID      string
+	Modules           []string
+	Options           map[string]interface{}
+	Version           string
+	TargetIPs         []string
+	Discovery         network.DiscoveryOverrides
+	ModuleConcurrency int
 }
 
 func parseAssessmentPayload(data map[string]interface{}) (assessmentJobPayload, error) {
@@ -194,6 +201,26 @@ func parseAssessmentPayload(data map[string]interface{}) (assessmentJobPayload, 
 
 	if opts, ok := data["options"].(map[string]interface{}); ok {
 		payload.Options = opts
+
+		if subnetRaw, exists := opts["subnet"]; exists {
+			targets, err := network.ParseSubnetOption(subnetRaw)
+			if err != nil {
+				return payload, fmt.Errorf("invalid subnet option: %w", err)
+			}
+			payload.TargetIPs = targets
+		}
+
+		if overridesRaw, exists := opts["discoveryOverrides"].(map[string]interface{}); exists {
+			overrides, err := parseDiscoveryOverrides(overridesRaw)
+			if err != nil {
+				return payload, err
+			}
+			payload.Discovery = overrides
+		}
+
+		if concRaw, exists := opts["moduleConcurrency"]; exists {
+			payload.ModuleConcurrency = parseIntOption(concRaw)
+		}
 	}
 
 	if version, ok := data["version"].(string); ok {
@@ -210,36 +237,164 @@ func executeAssessmentJob(payload assessmentJobPayload, cfg *config.Config, log 
 	}
 
 	runner := modules.NewRunner(log, cfg.Assessment.Timeout)
-	results, err := runner.RunModules(modulesToRun)
+	if len(payload.TargetIPs) == 0 {
+		results, moduleErrors := runner.RunModules(modulesToRun)
+		if len(moduleErrors) > 0 {
+			log.Warn("Some modules reported errors", map[string]interface{}{"count": len(moduleErrors)})
+		}
+
+		overallRisk := calculateOverallRisk(results)
+		summary := map[string]interface{}{
+			"assessmentId":     payload.AssessmentID,
+			"overallRiskScore": overallRisk,
+			"resultCount":      len(results),
+			"completedAt":      time.Now().UTC().Format(time.RFC3339),
+			"modulesRequested": modulesToRun,
+			"options":          payload.Options,
+			"results":          convertResults(results),
+			"riskBreakdown": map[string]int{
+				modules.RiskLevelCritical: countByRiskLevel(results, modules.RiskLevelCritical),
+				modules.RiskLevelHigh:     countByRiskLevel(results, modules.RiskLevelHigh),
+				modules.RiskLevelMedium:   countByRiskLevel(results, modules.RiskLevelMedium),
+				modules.RiskLevelLow:      countByRiskLevel(results, modules.RiskLevelLow),
+			},
+		}
+
+		if len(moduleErrors) > 0 {
+			summary["moduleErrors"] = stringifyModuleErrors(moduleErrors)
+		}
+
+		return jobExecutionResult{Status: jobStatusSucceeded, Summary: summary}
+	}
+
+	discoverer := network.NewDiscoverer(log)
+	discoveryResult, err := discoverer.Discover(payload.TargetIPs, payload.Discovery)
 	if err != nil {
-		log.Error("Assessment execution failed", map[string]interface{}{"error": err.Error()})
+		log.Error("Subnet discovery failed", map[string]interface{}{"error": err.Error()})
 		return jobExecutionResult{
 			Status:  jobStatusFailed,
 			Summary: map[string]interface{}{"error": err.Error()},
 		}
 	}
 
-	overallRisk := calculateOverallRisk(results)
+	if len(discoveryResult.Active) == 0 {
+		summary := map[string]interface{}{
+			"assessmentId":     payload.AssessmentID,
+			"modulesRequested": modulesToRun,
+			"options":          payload.Options,
+			"completedAt":      time.Now().UTC().Format(time.RFC3339),
+			"overallRiskScore": 0.0,
+			"resultCount":      0,
+			"discoveredHosts":  []map[string]interface{}{},
+			"unreachableHosts": discoveryResult.Unresponsive,
+			"targets":          []map[string]interface{}{},
+			"message":          "No responsive hosts discovered in subnet",
+		}
+		return jobExecutionResult{Status: jobStatusSucceeded, Summary: summary}
+	}
+
+	targetConcurrency := payload.ModuleConcurrency
+	if targetConcurrency <= 0 {
+		targetConcurrency = 4
+	}
+	if targetConcurrency > len(discoveryResult.Active) {
+		targetConcurrency = len(discoveryResult.Active)
+	}
+	if targetConcurrency <= 0 {
+		targetConcurrency = 1
+	}
+
+	type targetOutcome struct {
+		host    network.TargetHost
+		results []modules.AssessmentResult
+		errors  []modules.ModuleExecutionError
+	}
+
+	jobs := make(chan network.TargetHost)
+	outcomes := make(chan targetOutcome)
+
+	var wg sync.WaitGroup
+	for i := 0; i < targetConcurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for host := range jobs {
+				metadata := map[string]interface{}{"respondedBy": probeMethodsToStrings(host.RespondedBy)}
+				ctx := modules.TargetContext{IP: host.IP, Metadata: metadata}
+				res, moduleErrors := runner.RunModulesForTarget(modulesToRun, ctx)
+				outcomes <- targetOutcome{host: host, results: res, errors: moduleErrors}
+			}
+		}()
+	}
+
+	go func() {
+		for _, host := range discoveryResult.Active {
+			jobs <- host
+		}
+		close(jobs)
+	}()
+
+	go func() {
+		wg.Wait()
+		close(outcomes)
+	}()
+
+	aggregated := make([]modules.AssessmentResult, 0)
+	targetSummaries := make([]map[string]interface{}, 0, len(discoveryResult.Active))
+	var targetErrors []map[string]interface{}
+
+	for outcome := range outcomes {
+		aggregated = append(aggregated, outcome.results...)
+		summaryEntry := map[string]interface{}{
+			"targetIp":    outcome.host.IP,
+			"respondedBy": probeMethodsToStrings(outcome.host.RespondedBy),
+			"results":     convertResults(outcome.results),
+		}
+
+		if len(outcome.errors) > 0 {
+			errs := stringifyModuleErrors(outcome.errors)
+			summaryEntry["errors"] = errs
+			targetErrors = append(targetErrors, map[string]interface{}{
+				"targetIp": outcome.host.IP,
+				"errors":   errs,
+			})
+		}
+
+		targetSummaries = append(targetSummaries, summaryEntry)
+	}
+
+	sort.Slice(targetSummaries, func(i, j int) bool {
+		return targetSummaries[i]["targetIp"].(string) < targetSummaries[j]["targetIp"].(string)
+	})
+
+	overallRisk := calculateOverallRisk(aggregated)
 	summary := map[string]interface{}{
 		"assessmentId":     payload.AssessmentID,
-		"overallRiskScore": overallRisk,
-		"resultCount":      len(results),
-		"completedAt":      time.Now().UTC().Format(time.RFC3339),
 		"modulesRequested": modulesToRun,
 		"options":          payload.Options,
-		"results":          convertResults(results),
+		"completedAt":      time.Now().UTC().Format(time.RFC3339),
+		"overallRiskScore": overallRisk,
+		"resultCount":      len(aggregated),
+		"targets":          targetSummaries,
+		"discoveredHosts":  convertDiscoveredHosts(discoveryResult.Active),
+		"unreachableHosts": discoveryResult.Unresponsive,
 		"riskBreakdown": map[string]int{
-			modules.RiskLevelCritical: countByRiskLevel(results, modules.RiskLevelCritical),
-			modules.RiskLevelHigh:     countByRiskLevel(results, modules.RiskLevelHigh),
-			modules.RiskLevelMedium:   countByRiskLevel(results, modules.RiskLevelMedium),
-			modules.RiskLevelLow:      countByRiskLevel(results, modules.RiskLevelLow),
+			modules.RiskLevelCritical: countByRiskLevel(aggregated, modules.RiskLevelCritical),
+			modules.RiskLevelHigh:     countByRiskLevel(aggregated, modules.RiskLevelHigh),
+			modules.RiskLevelMedium:   countByRiskLevel(aggregated, modules.RiskLevelMedium),
+			modules.RiskLevelLow:      countByRiskLevel(aggregated, modules.RiskLevelLow),
 		},
 	}
 
-	return jobExecutionResult{
-		Status:  jobStatusSucceeded,
-		Summary: summary,
+	if len(targetErrors) > 0 {
+		summary["targetErrors"] = targetErrors
 	}
+
+	if len(discoveryResult.Unresponsive) > 0 {
+		summary["unreachableCount"] = len(discoveryResult.Unresponsive)
+	}
+
+	return jobExecutionResult{Status: jobStatusSucceeded, Summary: summary}
 }
 
 func convertResults(results []modules.AssessmentResult) []map[string]interface{} {
@@ -255,6 +410,146 @@ func convertResults(results []modules.AssessmentResult) []map[string]interface{}
 		})
 	}
 	return out
+}
+
+func stringifyModuleErrors(errs []modules.ModuleExecutionError) []string {
+	out := make([]string, 0, len(errs))
+	for _, e := range errs {
+		out = append(out, e.Error())
+	}
+	return out
+}
+
+func probeMethodsToStrings(methods []network.ProbeMethod) []string {
+	out := make([]string, 0, len(methods))
+	for _, m := range methods {
+		out = append(out, string(m))
+	}
+	return out
+}
+
+func convertDiscoveredHosts(hosts []network.TargetHost) []map[string]interface{} {
+	out := make([]map[string]interface{}, 0, len(hosts))
+	for _, host := range hosts {
+		out = append(out, map[string]interface{}{
+			"ip":          host.IP,
+			"respondedBy": probeMethodsToStrings(host.RespondedBy),
+		})
+	}
+	return out
+}
+
+func parseDiscoveryOverrides(raw map[string]interface{}) (network.DiscoveryOverrides, error) {
+	overrides := network.DiscoveryOverrides{}
+
+	if methodsRaw, ok := raw["methods"]; ok {
+		methods, err := parseProbeMethods(methodsRaw)
+		if err != nil {
+			return overrides, err
+		}
+		overrides.Methods = methods
+	}
+
+	if concurrencyRaw, ok := raw["concurrency"]; ok {
+		overrides.Concurrency = parseIntOption(concurrencyRaw)
+	}
+
+	if timeoutRaw, ok := raw["perHostTimeoutSeconds"]; ok {
+		overrides.PerHostTimeout = time.Duration(parseIntOption(timeoutRaw)) * time.Second
+	}
+
+	if portsRaw, ok := raw["tcpPorts"]; ok {
+		ports, err := parseIntSlice(portsRaw)
+		if err != nil {
+			return overrides, err
+		}
+		overrides.TCPPorts = ports
+	}
+
+	return overrides, nil
+}
+
+func parseProbeMethods(value interface{}) ([]network.ProbeMethod, error) {
+	var items []string
+	switch v := value.(type) {
+	case []interface{}:
+		for _, entry := range v {
+			s, ok := entry.(string)
+			if !ok {
+				return nil, fmt.Errorf("probe methods must be strings, got %T", entry)
+			}
+			items = append(items, s)
+		}
+	case string:
+		for _, part := range strings.Split(v, ",") {
+			trimmed := strings.TrimSpace(part)
+			if trimmed != "" {
+				items = append(items, trimmed)
+			}
+		}
+	default:
+		return nil, fmt.Errorf("invalid probe methods type %T", value)
+	}
+
+	out := make([]network.ProbeMethod, 0, len(items))
+	for _, item := range items {
+		upper := strings.ToUpper(item)
+		switch upper {
+		case string(network.ProbeARP), string(network.ProbeTCP), string(network.ProbeICMP):
+			out = append(out, network.ProbeMethod(upper))
+		default:
+			return nil, fmt.Errorf("unsupported probe method %s", item)
+		}
+	}
+	return out, nil
+}
+
+func parseIntSlice(value interface{}) ([]int, error) {
+	switch v := value.(type) {
+	case []interface{}:
+		var out []int
+		for _, entry := range v {
+			out = append(out, parseIntOption(entry))
+		}
+		return out, nil
+	case string:
+		parts := strings.Split(v, ",")
+		var out []int
+		for _, part := range parts {
+			trimmed := strings.TrimSpace(part)
+			if trimmed == "" {
+				continue
+			}
+			num, err := strconv.Atoi(trimmed)
+			if err != nil {
+				return nil, fmt.Errorf("invalid integer %q", trimmed)
+			}
+			out = append(out, num)
+		}
+		return out, nil
+	default:
+		return nil, fmt.Errorf("unsupported list type %T", value)
+	}
+}
+
+func parseIntOption(value interface{}) int {
+	switch v := value.(type) {
+	case int:
+		return v
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	case string:
+		trimmed := strings.TrimSpace(v)
+		if trimmed == "" {
+			return 0
+		}
+		if num, err := strconv.Atoi(trimmed); err == nil {
+			return num
+		}
+	}
+	return 0
 }
 
 func increaseBackoff(current time.Duration) time.Duration {

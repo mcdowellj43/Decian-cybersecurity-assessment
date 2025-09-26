@@ -14,6 +14,7 @@ import (
 // OpenServicePortIDModule implements open service and port identification assessment
 type OpenServicePortIDModule struct {
 	logger *logger.Logger
+	TargetAware
 }
 
 // NewOpenServicePortIDModule creates a new open service port identification module
