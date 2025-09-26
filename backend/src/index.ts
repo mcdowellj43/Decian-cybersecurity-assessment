@@ -261,6 +261,24 @@ const startServer = async () => {
   try {
     // Connect to database
     await connectDatabase();
+
+    // Clean up any existing expired enrollment tokens
+    try {
+      const { prisma } = await import('@/utils/database');
+      const expiredTokens = await prisma.enrollmentToken.deleteMany({
+        where: {
+          expiresAt: {
+            lt: new Date(),
+          },
+        },
+      });
+      if (expiredTokens.count > 0) {
+        logger.info(`Cleaned up ${expiredTokens.count} expired enrollment tokens on startup`);
+      }
+    } catch (cleanupError) {
+      logger.error('Error cleaning up expired tokens on startup:', cleanupError);
+    }
+
     console.log('About to import routes...');
 
     // Import routes dynamically with better error handling
@@ -327,11 +345,19 @@ startServer();
 // Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
+  // Clear any pending enrollment token timers
+  import('@/utils/enrollmentToken').then(({ clearAllTokenTimers }) => {
+    clearAllTokenTimers();
+  });
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
   logger.info('SIGINT received, shutting down gracefully');
+  // Clear any pending enrollment token timers
+  import('@/utils/enrollmentToken').then(({ clearAllTokenTimers }) => {
+    clearAllTokenTimers();
+  });
   process.exit(0);
 });
 
