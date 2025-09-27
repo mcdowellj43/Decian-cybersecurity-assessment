@@ -1,10 +1,13 @@
 'use client';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { RiskIndicator, RiskProgressBar } from '@/components/ui/RiskIndicator';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useDashboardData } from '@/hooks/useDashboardData';
-import { Shield, Activity, FileText, AlertTriangle, Loader2 } from 'lucide-react';
+import { useOrganizationDashboardData } from '@/hooks/useOrganizationDashboardData';
+import { useOrganizations } from '@/hooks/useOrganizations';
+import { Shield, Activity, FileText, AlertTriangle, Loader2, ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 function LoadingSkeleton() {
@@ -36,6 +39,125 @@ function ErrorState({ error }: { error: string }) {
         <div className="flex items-center space-x-2">
           <AlertTriangle className="h-5 w-5 text-red-600" />
           <p className="text-red-800">Failed to load dashboard data: {error}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function OrganizationRiskScoreCard() {
+  const [selectedOrgId, setSelectedOrgId] = useState<string>('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const { organizations, currentOrganization } = useOrganizations();
+  const { assessmentStats: orgAssessmentStats, isLoading: orgStatsLoading, refetch } = useOrganizationDashboardData(selectedOrgId || currentOrganization?.id);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleOrganizationChange = async (orgId: string) => {
+    setSelectedOrgId(orgId);
+    setShowDropdown(false);
+    await refetch(orgId);
+  };
+
+  const displayOrg = selectedOrgId
+    ? organizations.find(org => org.id === selectedOrgId)
+    : currentOrganization;
+
+  if (orgStatsLoading && !orgAssessmentStats) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Overall Risk Score by Organization</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+            <div className="h-8 bg-gray-200 rounded"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Overall Risk Score by Organization</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {/* Organization Selector */}
+          <div className="relative" ref={dropdownRef}>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Choose Organization:
+            </label>
+            <div className="relative">
+              <button
+                onClick={() => setShowDropdown(!showDropdown)}
+                className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-md bg-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <span className="truncate">
+                  {displayOrg?.name || 'Select Organization'}
+                </span>
+                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showDropdown && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
+                  <div className="py-1">
+                    {currentOrganization && (
+                      <button
+                        onClick={() => handleOrganizationChange('')}
+                        className={`w-full text-left px-3 py-2 hover:bg-gray-100 ${!selectedOrgId ? 'bg-blue-50 text-blue-700' : 'text-gray-900'}`}
+                      >
+                        {currentOrganization.name} (Current)
+                      </button>
+                    )}
+                    {organizations
+                      .filter(org => org.id !== currentOrganization?.id)
+                      .map((org) => (
+                        <button
+                          key={org.id}
+                          onClick={() => handleOrganizationChange(org.id)}
+                          className={`w-full text-left px-3 py-2 hover:bg-gray-100 ${selectedOrgId === org.id ? 'bg-blue-50 text-blue-700' : 'text-gray-900'}`}
+                        >
+                          {org.name}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Risk Score Display */}
+          <div className="space-y-4">
+            <RiskProgressBar score={orgAssessmentStats?.averageRiskScore || 0} />
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Risk Level</span>
+              <RiskIndicator score={orgAssessmentStats?.averageRiskScore || 0} />
+            </div>
+            {orgStatsLoading && (
+              <div className="text-sm text-gray-500 text-center">
+                <Loader2 className="h-4 w-4 animate-spin mx-auto mb-1" />
+                Loading organization data...
+              </div>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -136,20 +258,7 @@ export default function Home() {
 
       {/* Risk Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Overall Risk Score</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <RiskProgressBar score={assessmentStats?.averageRiskScore || 0} />
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Risk Level</span>
-                <RiskIndicator score={assessmentStats?.averageRiskScore || 0} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <OrganizationRiskScoreCard />
 
         <Card>
           <CardHeader>

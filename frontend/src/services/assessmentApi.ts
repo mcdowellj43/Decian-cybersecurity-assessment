@@ -193,9 +193,12 @@ export const assessmentApi = {
   /**
    * Get assessment statistics
    */
-  getStats: async (): Promise<AssessmentStats> => {
+  getStats: async (organizationId?: string): Promise<AssessmentStats> => {
     try {
-      const response = await apiClient.get('/assessments/stats');
+      const queryParams = new URLSearchParams();
+      if (organizationId) queryParams.append('organizationId', organizationId);
+
+      const response = await apiClient.get(`/assessments/stats?${queryParams.toString()}`);
       return handleApiResponse(response);
     } catch (error) {
       throw handleApiError(error);
