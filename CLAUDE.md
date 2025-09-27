@@ -1,5 +1,10 @@
 # CLAUDE.md - Cybersecurity Risk Assessment Platform
 
+# Starting and Stopping the services
+# The frontend always runs on port 3000, the backend, on 3001, and prisma DB on 5557
+# To start the services, run the ./start-services.sh script
+# To stop the services, run the ./delete-services.sh script
+
 ## PROJECT OVERVIEW
 
 This is a comprehensive cybersecurity risk assessment platform consisting of a centralized web dashboard and distributed Go-based agents. The platform performs automated security assessments across Windows environments and provides executive-level reporting with actionable insights.
