@@ -51,7 +51,8 @@
       "Bash(npx prisma:*)",
       "Bash(sqlite3:*)",
       "Bash(./decian-agent-new.exe run --verbose)",
-      "Bash(./decian-agent-fixed.exe run --verbose)"
+      "Bash(./decian-agent-fixed.exe run --verbose)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []

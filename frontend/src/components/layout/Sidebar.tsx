@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Activity,
   Building2,
+  BookOpen,
 } from 'lucide-react';
 
 const navigation = [
@@ -22,6 +23,7 @@ const navigation = [
   { name: 'Assessments', href: '/assessments', icon: Shield },
   { name: 'Agents', href: '/agents', icon: Activity },
   { name: 'Reports', href: '/reports', icon: FileText },
+  { name: 'Documentation', href: '/docs', icon: BookOpen },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
