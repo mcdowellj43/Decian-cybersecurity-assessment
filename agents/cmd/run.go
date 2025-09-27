@@ -152,7 +152,7 @@ type jobExecutionResult struct {
 func executeJob(job client.JobEnvelope, cfg *config.Config, log *logger.Logger) jobExecutionResult {
 	switch strings.ToUpper(job.Type) {
 	case "ASSESSMENT":
-		payload, err := parseAssessmentPayload(job.Payload)
+		payload, err := parseAssessmentPayload(job.Payload, log)
 		if err != nil {
 			log.Error("Invalid assessment job payload", map[string]interface{}{"job_id": job.JobID, "error": err.Error()})
 			return jobExecutionResult{
@@ -180,7 +180,8 @@ type assessmentJobPayload struct {
 	ModuleConcurrency int
 }
 
-func parseAssessmentPayload(data map[string]interface{}) (assessmentJobPayload, error) {
+func parseAssessmentPayload(data map[string]interface{}, log *logger.Logger) (assessmentJobPayload, error) {
+	log.Debug("parseAssessmentPayload called", map[string]interface{}{"raw_data": data})
 	payload := assessmentJobPayload{
 		Options: map[string]interface{}{},
 	}
@@ -201,13 +202,19 @@ func parseAssessmentPayload(data map[string]interface{}) (assessmentJobPayload, 
 
 	if opts, ok := data["options"].(map[string]interface{}); ok {
 		payload.Options = opts
+		log.Debug("Parsed options from payload", map[string]interface{}{"options": opts})
 
 		if subnetRaw, exists := opts["subnet"]; exists {
+			log.Debug("Found subnet option", map[string]interface{}{"subnet_raw": subnetRaw, "type": fmt.Sprintf("%T", subnetRaw)})
 			targets, err := network.ParseSubnetOption(subnetRaw)
 			if err != nil {
+				log.Error("Failed to parse subnet option", map[string]interface{}{"error": err.Error(), "subnet_raw": subnetRaw})
 				return payload, fmt.Errorf("invalid subnet option: %w", err)
 			}
+			log.Info("Successfully parsed subnet targets", map[string]interface{}{"target_count": len(targets), "targets": targets})
 			payload.TargetIPs = targets
+		} else {
+			log.Debug("No subnet option found in payload options")
 		}
 
 		if overridesRaw, exists := opts["discoveryOverrides"].(map[string]interface{}); exists {
@@ -221,6 +228,8 @@ func parseAssessmentPayload(data map[string]interface{}) (assessmentJobPayload, 
 		if concRaw, exists := opts["moduleConcurrency"]; exists {
 			payload.ModuleConcurrency = parseIntOption(concRaw)
 		}
+	} else {
+		log.Debug("No options found in payload data")
 	}
 
 	if version, ok := data["version"].(string); ok {
@@ -231,6 +240,12 @@ func parseAssessmentPayload(data map[string]interface{}) (assessmentJobPayload, 
 }
 
 func executeAssessmentJob(payload assessmentJobPayload, cfg *config.Config, log *logger.Logger) jobExecutionResult {
+	log.Debug("Starting assessment job execution", map[string]interface{}{
+		"target_ips_count": len(payload.TargetIPs),
+		"target_ips": payload.TargetIPs,
+		"options": payload.Options,
+	})
+
 	modulesToRun := payload.Modules
 	if len(modulesToRun) == 0 {
 		modulesToRun = cfg.Assessment.DefaultModules
@@ -238,6 +253,7 @@ func executeAssessmentJob(payload assessmentJobPayload, cfg *config.Config, log 
 
 	runner := modules.NewRunner(log, cfg.Assessment.Timeout)
 	if len(payload.TargetIPs) == 0 {
+		log.Info("No target IPs found, running local assessment")
 		results, moduleErrors := runner.RunModules(modulesToRun)
 		if len(moduleErrors) > 0 {
 			log.Warn("Some modules reported errors", map[string]interface{}{"count": len(moduleErrors)})

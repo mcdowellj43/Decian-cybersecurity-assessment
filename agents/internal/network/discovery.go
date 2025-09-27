@@ -132,11 +132,26 @@ func (d *Discoverer) Discover(targets []string, overrides DiscoveryOverrides) (D
 		close(inactiveCh)
 	}()
 
-	for host := range resultsCh {
-		result.Active = append(result.Active, host)
-	}
-	for ip := range inactiveCh {
-		result.Unresponsive = append(result.Unresponsive, ip)
+	// Read from both channels concurrently to avoid deadlock
+	for {
+		select {
+		case host, ok := <-resultsCh:
+			if !ok {
+				resultsCh = nil
+			} else {
+				result.Active = append(result.Active, host)
+			}
+		case ip, ok := <-inactiveCh:
+			if !ok {
+				inactiveCh = nil
+			} else {
+				result.Unresponsive = append(result.Unresponsive, ip)
+			}
+		}
+		// Exit when both channels are closed
+		if resultsCh == nil && inactiveCh == nil {
+			break
+		}
 	}
 
 	sort.Slice(result.Active, func(i, j int) bool { return result.Active[i].IP < result.Active[j].IP })

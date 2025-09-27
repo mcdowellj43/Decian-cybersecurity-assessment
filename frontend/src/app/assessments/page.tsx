@@ -6,6 +6,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAssessments } from '@/hooks/useAssessments';
 import { useAgents } from '@/hooks/useAgents';
 import { reportApi } from '@/services/reportApi';
+import { CheckType } from '@/services/assessmentApi';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -278,22 +279,44 @@ function CreateAssessmentModal({
   isOpen: boolean;
   onClose: () => void;
   agents: any[];
-  onCreateAssessment: (agentId: string) => void;
+  onCreateAssessment: (agentId: string, scanType: 'host' | 'subnet', subnet?: string) => void;
 }) {
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [isCreating, setIsCreating] = useState(false);
+  const [scanType, setScanType] = useState<'host' | 'subnet'>('host');
+  const [subnet, setSubnet] = useState<string>('');
 
   if (!isOpen) return null;
+
+  // CIDR validation function
+  const isValidCIDR = (cidr: string): boolean => {
+    const cidrRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(?:[0-9]|[1-2][0-9]|3[0-2])$/;
+    return cidrRegex.test(cidr);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAgentId) return;
 
+    // Validate subnet if subnet scan is selected
+    if (scanType === 'subnet') {
+      if (!subnet.trim()) {
+        alert('Please enter a subnet CIDR (e.g., 192.168.1.0/24)');
+        return;
+      }
+      if (!isValidCIDR(subnet.trim())) {
+        alert('Please enter a valid CIDR format (e.g., 192.168.1.0/24)');
+        return;
+      }
+    }
+
     setIsCreating(true);
     try {
-      await onCreateAssessment(selectedAgentId);
+      await onCreateAssessment(selectedAgentId, scanType, scanType === 'subnet' ? subnet.trim() : undefined);
       onClose();
       setSelectedAgentId('');
+      setScanType('host');
+      setSubnet('');
     } catch (error) {
       console.error('Failed to create assessment:', error);
     } finally {
@@ -343,6 +366,55 @@ function CreateAssessmentModal({
               </select>
             )}
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Scan Type
+            </label>
+            <div className="flex space-x-4">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="scanType"
+                  value="host"
+                  checked={scanType === 'host'}
+                  onChange={(e) => setScanType(e.target.value as 'host' | 'subnet')}
+                  className="mr-2"
+                />
+                <span className="text-sm text-gray-700">Single Host</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="scanType"
+                  value="subnet"
+                  checked={scanType === 'subnet'}
+                  onChange={(e) => setScanType(e.target.value as 'host' | 'subnet')}
+                  className="mr-2"
+                />
+                <span className="text-sm text-gray-700">Subnet Scan</span>
+              </label>
+            </div>
+          </div>
+
+          {scanType === 'subnet' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Subnet CIDR
+              </label>
+              <input
+                type="text"
+                value={subnet}
+                onChange={(e) => setSubnet(e.target.value)}
+                placeholder="e.g., 192.168.1.0/24"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required={scanType === 'subnet'}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Enter a CIDR notation for the subnet to scan (up to /24 supported)
+              </p>
+            </div>
+          )}
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="font-medium text-blue-900 mb-2">Assessment Modules</h4>
@@ -398,9 +470,9 @@ export default function AssessmentsPage() {
     setShowCreateModal(true);
   };
 
-  const handleCreateAssessment = async (agentId: string) => {
+  const handleCreateAssessment = async (agentId: string, scanType: 'host' | 'subnet', subnet?: string) => {
     try {
-      await createAssessment({
+      const assessmentData = {
         agentId,
         modules: [
           'MISCONFIGURATION_DISCOVERY',
@@ -413,8 +485,14 @@ export default function AssessmentsPage() {
           'PASSWORD_POLICY_WEAKNESS',
           'OPEN_SERVICE_PORT_ID',
           'USER_BEHAVIOR_RISK_SIGNALS'
-        ]
-      });
+        ] as CheckType[],
+        metadata: {
+          scanType,
+          ...(scanType === 'subnet' && subnet ? { subnet } : {})
+        }
+      };
+
+      await createAssessment(assessmentData);
     } catch (error) {
       throw error;
     }

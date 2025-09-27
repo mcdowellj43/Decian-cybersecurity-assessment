@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAgents } from '@/hooks/useAgents';
+import { agentApi } from '@/services/agentApi';
 import { useState } from 'react';
 import {
   Server,
@@ -49,7 +50,7 @@ function ErrorState({ error }: { error: string }) {
   );
 }
 
-function AgentCard({ agent, onConfigure }: { agent: any; onConfigure: (agent: any) => void }) {
+function AgentCard({ agent, onConfigure, onDelete, isDeleting }: { agent: any; onConfigure: (agent: any) => void; onDelete: (agent: any) => void; isDeleting: boolean }) {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'ONLINE':
@@ -115,8 +116,17 @@ function AgentCard({ agent, onConfigure }: { agent: any; onConfigure: (agent: an
               <Settings className="h-4 w-4 mr-1" />
               Configure
             </Button>
-            <Button variant="ghost" size="sm">
-              <Trash2 className="h-4 w-4 text-red-600" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onDelete(agent)}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 text-red-600 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 text-red-600" />
+              )}
             </Button>
           </div>
         </div>
@@ -271,14 +281,36 @@ function EmptyState({ onDownloadClick }: { onDownloadClick: () => void }) {
 }
 
 export default function AgentsPage() {
-  const { agents, isLoading, error } = useAgents();
+  const { agents, isLoading, error, refetch } = useAgents();
   const [isDownloading, setIsDownloading] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const handleConfigureAgent = (agent: any) => {
     setSelectedAgent(agent);
     setShowConfigModal(true);
+  };
+
+  const handleDeleteAgent = async (agent: any) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete agent "${agent.hostname}"? This action cannot be undone.`
+    );
+
+    if (!confirmDelete) {
+      return;
+    }
+
+    setIsDeleting(agent.id);
+    try {
+      await agentApi.deleteAgent(agent.id);
+      await refetch(); // Refresh the agents list
+    } catch (error) {
+      console.error('Failed to delete agent:', error);
+      alert('Failed to delete agent. Please try again.');
+    } finally {
+      setIsDeleting(null);
+    }
   };
 
   const handleDownloadClick = async () => {
@@ -453,7 +485,13 @@ export default function AgentsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {agents.map((agent) => (
-              <AgentCard key={agent.id} agent={agent} onConfigure={handleConfigureAgent} />
+              <AgentCard
+                key={agent.id}
+                agent={agent}
+                onConfigure={handleConfigureAgent}
+                onDelete={handleDeleteAgent}
+                isDeleting={isDeleting === agent.id}
+              />
             ))}
           </div>
         )}
