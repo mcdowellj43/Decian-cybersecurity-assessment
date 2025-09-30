@@ -32,7 +32,7 @@ FRONTEND_PID=$!
 BACKEND_PID=$!
 
 # Start Prisma Studio on port 5557 in background
-(cd backend && PRISMA_STUDIO_PORT=5557 npx prisma studio) &
+(cd backend && npx prisma studio --port 5557) &
 PRISMA_PID=$!
 
 # Wait a few seconds for services to start

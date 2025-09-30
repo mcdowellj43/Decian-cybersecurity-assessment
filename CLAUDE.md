@@ -1,7 +1,9 @@
 # CLAUDE.md - Cybersecurity Risk Assessment Platform
 
-## CURRENT IMPLEMENTATION PHASE: DYNAMIC AGENT MODULES
-**IMPORTANT**: We are currently implementing dynamic agent module loading. Reference the `dynamic-agent-modules.md` file for the complete implementation plan, architecture details, and step-by-step instructions. This will enable adding new assessment modules by simply adding .go files to `/internal/modules/` without requiring code changes or recompilation.
+## CURRENT IMPLEMENTATION PHASE: NETWORK BASED ASSESSMENT MODULES
+## IMPORTANT ##
+  - as you are going through the feature implementation, reference network-agent-modules.md for what to put in the modules for design, and reference DYNAMIC_MODULE_GUIDE.md for how to build the module so that it fits correctly within the current dynamic module implementation scheme
+
 
 **PHASE 1 STATUS**: ✅ COMPLETED - Core plugin architecture implemented
 - Plugin interfaces defined in `agents/internal/modules/types.go`

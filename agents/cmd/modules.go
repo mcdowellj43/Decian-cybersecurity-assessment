@@ -8,8 +8,9 @@ import (
 	"decian-agent/internal/modules"
 	"github.com/spf13/cobra"
 
-	// Import host-based modules for auto-registration
+	// Import modules for auto-registration
 	_ "decian-agent/internal/modules/host-based"
+	_ "decian-agent/internal/modules/network-based"
 )
 
 var modulesCmd = &cobra.Command{

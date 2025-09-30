@@ -41,80 +41,112 @@ The Decian Agent uses a **fully dynamic module discovery system** that automatic
 
 ## 📝 **Creating a New Module**
 
-### Step 1: Create the Module File
+### Step 1: Choose Module Category and Location
 
-Create a new file in `agents/internal/modules/` following the naming pattern: `{module_name}.go`
+**IMPORTANT**: Modules must be placed in the correct category subdirectory:
 
-Example: `network_security_audit.go`
+**For Host-Based Modules** (system checks, file scans, registry, etc.):
+- Create file in: `agents/internal/modules/host-based/`
+- Use package: `package hostbased`
+
+**For Network-Based Modules** (port scans, network discovery, etc.):
+- Create file in: `agents/internal/modules/network-based/`
+- Use package: `package networkbased`
+
+Example locations:
+- `agents/internal/modules/host-based/registry_audit.go`
+- `agents/internal/modules/network-based/port_scanner.go`
 
 ### Step 2: Required Module Structure
 
+**For Host-Based Modules:**
 ```go
-package modules
+package hostbased
 
 import (
 	"decian-agent/internal/logger"
+	"decian-agent/internal/modules"
+	// ... other imports
+)
+```
+
+**For Network-Based Modules:**
+```go
+package networkbased
+
+import (
+	"decian-agent/internal/logger"
+	"decian-agent/internal/modules"
+	// ... other imports
+)
+```
+
+**⚠️ CRITICAL**: Always import `"decian-agent/internal/modules"` and prefix all module types with `modules.`
+
+### Step 3: Complete Module Example (Network-Based)
+
+```go
+package networkbased
+
+import (
+	"decian-agent/internal/logger"
+	"decian-agent/internal/modules"
+	"fmt"
+	"time"
 )
 
 // NetworkSecurityAuditModule implements network security auditing
 type NetworkSecurityAuditModule struct {
-	BaseModule
 	logger *logger.Logger
+	info   modules.ModuleInfo
 }
 
 // NewNetworkSecurityAuditModule creates a new NetworkSecurityAuditModule instance
 func NewNetworkSecurityAuditModule(logger *logger.Logger) *NetworkSecurityAuditModule {
 	return &NetworkSecurityAuditModule{
-		BaseModule: BaseModule{
-			info: ModuleInfo{
-				Name:             "Network Security Audit",
-				Description:      "Comprehensive network security assessment including firewall rules, open ports, and network protocols",
-				CheckType:        "NETWORK_SECURITY_AUDIT",
-				Platform:         "windows",
-				DefaultRiskLevel: "HIGH",
-				RequiresAdmin:    true,
-			},
-		},
 		logger: logger,
+		info: modules.ModuleInfo{
+			Name:             "Network Security Audit",
+			Description:      "Comprehensive network security assessment including firewall rules, open ports, and network protocols",
+			CheckType:        "NETWORK_SECURITY_AUDIT",
+			Platform:         "windows",
+			DefaultRiskLevel: "HIGH",
+			RequiresAdmin:    true,
+			Category:         modules.CategoryNetworkBased, // ⭐ IMPORTANT: Use modules. prefix
+		},
 	}
 }
 
+// GetInfo returns information about the module
+func (m *NetworkSecurityAuditModule) GetInfo() modules.ModuleInfo {
+	return m.info
+}
+
 // Execute performs the network security audit
-func (m *NetworkSecurityAuditModule) Execute() (*AssessmentResult, error) {
+func (m *NetworkSecurityAuditModule) Execute() (*modules.AssessmentResult, error) {
 	m.logger.Info("Starting network security audit", nil)
+	startTime := time.Now()
 
 	// TODO: Implement your security checks here
-	// Example implementation:
-	findings := []Finding{}
+	// Example implementation would go here...
 
-	// Check firewall status
-	if !m.checkFirewallEnabled() {
-		findings = append(findings, Finding{
-			Category:    "Firewall",
-			Issue:       "Windows Firewall is disabled",
-			Severity:    "HIGH",
-			Description: "System firewall is not protecting against network threats",
-			Remediation: "Enable Windows Firewall for all network profiles",
-		})
+	// Calculate risk score using module utility
+	riskScore := 25.0 // Example score
+	riskLevel := modules.DetermineRiskLevel(riskScore) // ⭐ Use modules. prefix
+
+	result := &modules.AssessmentResult{ // ⭐ Use modules. prefix
+		CheckType: m.info.CheckType,
+		RiskScore: riskScore,
+		RiskLevel: riskLevel,
+		Data: map[string]interface{}{
+			"summary": "Network security audit completed",
+			"findings": []string{},
+		},
+		Timestamp: time.Now(),
+		Duration:  time.Since(startTime),
 	}
 
-	// Calculate risk score based on findings
-	riskScore := m.calculateRiskScore(findings)
-
-	return &AssessmentResult{
-		CheckType:   m.info.CheckType,
-		RiskScore:   riskScore,
-		RiskLevel:   m.determineRiskLevel(riskScore),
-		Status:      "COMPLETED",
-		Findings:    findings,
-		Summary:     m.generateSummary(findings),
-		Remediation: m.generateRemediation(findings),
-		Metadata: map[string]interface{}{
-			"total_checks":     1,
-			"findings_count":   len(findings),
-			"execution_time":   "2.3s",
-		},
-	}, nil
+	return result, nil
 }
 
 // Validate checks if the module can run on this system
@@ -124,110 +156,118 @@ func (m *NetworkSecurityAuditModule) Validate() error {
 	return nil
 }
 
-// Helper methods for your specific checks
-func (m *NetworkSecurityAuditModule) checkFirewallEnabled() bool {
-	// Implement firewall check logic
-	return true
-}
-
-func (m *NetworkSecurityAuditModule) calculateRiskScore(findings []Finding) int {
-	// Implement risk scoring logic
-	if len(findings) == 0 {
-		return 10 // Low risk
-	}
-	return 85 // High risk for demo
-}
-
-func (m *NetworkSecurityAuditModule) determineRiskLevel(score int) string {
-	if score >= 80 {
-		return "HIGH"
-	} else if score >= 50 {
-		return "MEDIUM"
-	}
-	return "LOW"
-}
-
-func (m *NetworkSecurityAuditModule) generateSummary(findings []Finding) string {
-	if len(findings) == 0 {
-		return "Network security configuration appears secure"
-	}
-	return fmt.Sprintf("Found %d network security issues requiring attention", len(findings))
-}
-
-func (m *NetworkSecurityAuditModule) generateRemediation(findings []Finding) []string {
-	remediations := []string{}
-	for _, finding := range findings {
-		remediations = append(remediations, finding.Remediation)
-	}
-	return remediations
-}
-
 // =============================================================================
 // PLUGIN INTERFACE IMPLEMENTATION (Required)
 // =============================================================================
 
-// NewNetworkSecurityAuditModulePlugin creates a new plugin instance
-func NewNetworkSecurityAuditModulePlugin(logger *logger.Logger) ModulePlugin {
+// Plugin constructor function (Required)
+func NewNetworkSecurityAuditModulePlugin(logger *logger.Logger) modules.ModulePlugin { // ⭐ Use modules. prefix
 	return NewNetworkSecurityAuditModule(logger)
 }
 
-// Auto-registration via init() function
+// Auto-registration via init() function (Required)
 func init() {
-	RegisterPluginConstructor("NETWORK_SECURITY_AUDIT", NewNetworkSecurityAuditModulePlugin)
+	modules.RegisterPluginConstructor("NETWORK_SECURITY_AUDIT", NewNetworkSecurityAuditModulePlugin) // ⭐ Use modules. prefix
 }
 ```
 
-### Step 3: Required Constants
+### Step 4: Add CheckType Constant (Required)
 
-If your module needs specific constants, add them to `types.go`:
+Add your new CheckType constant to `agents/internal/modules/types.go`:
 
 ```go
-// Add to agents/internal/modules/types.go
+// In types.go - add to the constants section
 const (
-	// ... existing constants ...
-	CheckTypeNetworkSecurityAudit = "NETWORK_SECURITY_AUDIT"
+    // ... existing constants ...
+
+    // Network-based modules
+    CheckTypeNetworkSecurityAudit = "NETWORK_SECURITY_AUDIT"
 )
+```
+
+### Step 5: Register Module Import (CRITICAL)
+
+**⚠️ THIS STEP IS ESSENTIAL** - Modules won't be discovered without this!
+
+Add the import to BOTH files:
+
+**File 1**: `agents/cmd/modules.go`
+```go
+import (
+    // ... existing imports ...
+
+    // Import modules for auto-registration
+    _ "decian-agent/internal/modules/host-based"
+    _ "decian-agent/internal/modules/network-based" // ⭐ REQUIRED for network modules
+)
+```
+
+**File 2**: `agents/cmd/run.go`
+```go
+import (
+    // ... existing imports ...
+
+    // Import modules for auto-registration
+    _ "decian-agent/internal/modules/host-based"
+    _ "decian-agent/internal/modules/network-based" // ⭐ REQUIRED for network modules
+)
+```
 ```
 
 ---
 
-## 🔧 **Required Components**
+## 🔧 **Required Components Summary**
 
 ### 1. Module Struct
-- Must embed `BaseModule`
 - Include `logger *logger.Logger` field
+- Include `info modules.ModuleInfo` field
 - Add any module-specific fields
 
 ### 2. Constructor Function
 ```go
 func NewYourModule(logger *logger.Logger) *YourModule {
 	return &YourModule{
-		BaseModule: BaseModule{
-			info: ModuleInfo{
-				Name:             "Your Module Name",
-				Description:      "What your module does",
-				CheckType:        "YOUR_MODULE_CHECK_TYPE",
-				Platform:         "windows",
-				DefaultRiskLevel: "HIGH|MEDIUM|LOW",
-				RequiresAdmin:    true|false,
-			},
-		},
 		logger: logger,
+		info: modules.ModuleInfo{
+			Name:             "Your Module Name",
+			Description:      "What your module does",
+			CheckType:        "YOUR_MODULE_CHECK_TYPE",
+			Platform:         "windows",
+			DefaultRiskLevel: "HIGH|MEDIUM|LOW",
+			RequiresAdmin:    true|false,
+			Category:         modules.CategoryNetworkBased, // or modules.CategoryHostBased
+		},
 	}
 }
 ```
 
-### 3. Plugin Constructor (Required)
+### 3. Required Interface Methods
 ```go
-func NewYourModulePlugin(logger *logger.Logger) ModulePlugin {
+func (m *YourModule) GetInfo() modules.ModuleInfo {
+	return m.info
+}
+
+func (m *YourModule) Execute() (*modules.AssessmentResult, error) {
+	// Your implementation here
+}
+
+func (m *YourModule) Validate() error {
+	// Your validation here
+	return nil
+}
+```
+
+### 4. Plugin Constructor (Required)
+```go
+func NewYourModulePlugin(logger *logger.Logger) modules.ModulePlugin {
 	return NewYourModule(logger)
 }
 ```
 
-### 4. Auto-Registration (Required)
+### 5. Auto-Registration (Required)
 ```go
 func init() {
-	RegisterPluginConstructor("YOUR_MODULE_CHECK_TYPE", NewYourModulePlugin)
+	modules.RegisterPluginConstructor("YOUR_MODULE_CHECK_TYPE", NewYourModulePlugin)
 }
 ```
 
@@ -247,61 +287,70 @@ type ModulePlugin interface {
 
 ## 📋 **Module Template**
 
-Use this template for new modules:
+### Network-Based Module Template
+
+**File**: `agents/internal/modules/network-based/your_module.go`
 
 ```go
-package modules
+package networkbased
 
 import (
 	"decian-agent/internal/logger"
+	"decian-agent/internal/modules"
+	"time"
 )
 
 // YourModuleNameModule implements [description]
 type YourModuleNameModule struct {
-	BaseModule
 	logger *logger.Logger
+	info   modules.ModuleInfo
 }
 
 // NewYourModuleNameModule creates a new instance
 func NewYourModuleNameModule(logger *logger.Logger) *YourModuleNameModule {
 	return &YourModuleNameModule{
-		BaseModule: BaseModule{
-			info: ModuleInfo{
-				Name:             "Your Module Display Name",
-				Description:      "What this module checks for",
-				CheckType:        "YOUR_MODULE_CHECK_TYPE",
-				Platform:         "windows",
-				DefaultRiskLevel: "HIGH",
-				RequiresAdmin:    true,
-			},
-		},
 		logger: logger,
+		info: modules.ModuleInfo{
+			Name:             "Your Module Display Name",
+			Description:      "What this module checks for",
+			CheckType:        "YOUR_MODULE_CHECK_TYPE",
+			Platform:         "windows",
+			DefaultRiskLevel: "HIGH",
+			RequiresAdmin:    true,
+			Category:         modules.CategoryNetworkBased,
+		},
 	}
 }
 
+// GetInfo returns information about the module
+func (m *YourModuleNameModule) GetInfo() modules.ModuleInfo {
+	return m.info
+}
+
 // Execute performs the security assessment
-func (m *YourModuleNameModule) Execute() (*AssessmentResult, error) {
+func (m *YourModuleNameModule) Execute() (*modules.AssessmentResult, error) {
 	m.logger.Info("Starting your module assessment", nil)
+	startTime := time.Now()
 
 	// TODO: Implement your security checks here
-	findings := []Finding{}
 
-	// Your assessment logic goes here
+	// Calculate risk score
+	riskScore := 50.0 // Your calculation
+	riskLevel := modules.DetermineRiskLevel(riskScore)
 
-	riskScore := m.calculateRiskScore(findings)
-
-	return &AssessmentResult{
-		CheckType:   m.info.CheckType,
-		RiskScore:   riskScore,
-		RiskLevel:   m.determineRiskLevel(riskScore),
-		Status:      "COMPLETED",
-		Findings:    findings,
-		Summary:     "Your summary here",
-		Remediation: []string{"Your remediation steps"},
-		Metadata: map[string]interface{}{
-			"execution_time": "1.5s",
+	result := &modules.AssessmentResult{
+		CheckType: m.info.CheckType,
+		RiskScore: riskScore,
+		RiskLevel: riskLevel,
+		Data: map[string]interface{}{
+			"summary": "Your summary here",
+			"findings": []string{},
 		},
-	}, nil
+		Timestamp: time.Now(),
+		Duration:  time.Since(startTime),
+	}
+
+	return result, nil
 }
 
 // Validate checks if the module can run
@@ -310,13 +359,95 @@ func (m *YourModuleNameModule) Validate() error {
 }
 
 // Plugin constructor (Required)
-func NewYourModuleNameModulePlugin(logger *logger.Logger) ModulePlugin {
+func NewYourModuleNameModulePlugin(logger *logger.Logger) modules.ModulePlugin {
 	return NewYourModuleNameModule(logger)
 }
 
 // Auto-registration (Required)
 func init() {
-	RegisterPluginConstructor("YOUR_MODULE_CHECK_TYPE", NewYourModuleNameModulePlugin)
+	modules.RegisterPluginConstructor("YOUR_MODULE_CHECK_TYPE", NewYourModuleNameModulePlugin)
+}
+```
+
+### Host-Based Module Template
+
+**File**: `agents/internal/modules/host-based/your_module.go`
+
+```go
+package hostbased
+
+import (
+	"decian-agent/internal/logger"
+	"decian-agent/internal/modules"
+	"time"
+)
+
+// YourModuleNameModule implements [description]
+type YourModuleNameModule struct {
+	logger *logger.Logger
+	info   modules.ModuleInfo
+}
+
+// NewYourModuleNameModule creates a new instance
+func NewYourModuleNameModule(logger *logger.Logger) *YourModuleNameModule {
+	return &YourModuleNameModule{
+		logger: logger,
+		info: modules.ModuleInfo{
+			Name:             "Your Module Display Name",
+			Description:      "What this module checks for",
+			CheckType:        "YOUR_MODULE_CHECK_TYPE",
+			Platform:         "windows",
+			DefaultRiskLevel: "HIGH",
+			RequiresAdmin:    true,
+			Category:         modules.CategoryHostBased,
+		},
+	}
+}
+
+// GetInfo returns information about the module
+func (m *YourModuleNameModule) GetInfo() modules.ModuleInfo {
+	return m.info
+}
+
+// Execute performs the security assessment
+func (m *YourModuleNameModule) Execute() (*modules.AssessmentResult, error) {
+	m.logger.Info("Starting your module assessment", nil)
+	startTime := time.Now()
+
+	// TODO: Implement your security checks here
+
+	// Calculate risk score
+	riskScore := 50.0 // Your calculation
+	riskLevel := modules.DetermineRiskLevel(riskScore)
+
+	result := &modules.AssessmentResult{
+		CheckType: m.info.CheckType,
+		RiskScore: riskScore,
+		RiskLevel: riskLevel,
+		Data: map[string]interface{}{
+			"summary": "Your summary here",
+			"findings": []string{},
+		},
+		Timestamp: time.Now(),
+		Duration:  time.Since(startTime),
+	}
+
+	return result, nil
+}
+
+// Validate checks if the module can run
+func (m *YourModuleNameModule) Validate() error {
+	return nil
+}
+
+// Plugin constructor (Required)
+func NewYourModuleNameModulePlugin(logger *logger.Logger) modules.ModulePlugin {
+	return NewYourModuleNameModule(logger)
+}
+
+// Auto-registration (Required)
+func init() {
+	modules.RegisterPluginConstructor("YOUR_MODULE_CHECK_TYPE", NewYourModuleNameModulePlugin)
 }
 ```
 
@@ -476,10 +607,43 @@ GET /api/agents/:id/modules
 ## 🐛 **Troubleshooting**
 
 ### Module Not Appearing in Dashboard
-1. Check `init()` function is present and correct
-2. Verify `CheckType` is unique
-3. Ensure module compiles without errors
-4. Check agent executable was rebuilt after adding module
+
+**Most Common Issue**: Missing package imports in cmd files.
+
+1. ✅ **Check import statements** - Verify both files have the correct imports:
+   - `agents/cmd/modules.go`
+   - `agents/cmd/run.go`
+
+   Both must include:
+   ```go
+   _ "decian-agent/internal/modules/host-based"
+   _ "decian-agent/internal/modules/network-based"
+   ```
+
+2. ✅ **Verify module location** - Module must be in correct directory:
+   - Host-based: `agents/internal/modules/host-based/`
+   - Network-based: `agents/internal/modules/network-based/`
+
+3. ✅ **Check package declaration** - Must use correct package name:
+   - Host-based: `package hostbased`
+   - Network-based: `package networkbased`
+
+4. ✅ **Verify modules.* prefix** - All types must be prefixed:
+   - `modules.ModuleInfo` (not `ModuleInfo`)
+   - `modules.AssessmentResult` (not `AssessmentResult`)
+   - `modules.RegisterPluginConstructor` (not `RegisterPluginConstructor`)
+
+5. ✅ **Check init() function** - Must use modules. prefix:
+   ```go
+   func init() {
+       modules.RegisterPluginConstructor("YOUR_CHECK_TYPE", NewYourModulePlugin)
+   }
+   ```
+
+6. ✅ **Rebuild agent** - Always rebuild after changes:
+   ```bash
+   go build -o dist/agent.exe .
+   ```
 
 ### Module Execution Fails
 1. Verify `Validate()` method returns `nil`
@@ -489,9 +653,10 @@ GET /api/agents/:id/modules
 
 ### Common Issues
 - **Duplicate CheckType**: Each module must have unique identifier
-- **Missing init()**: Module won't be discovered without auto-registration
-- **Import errors**: Ensure all dependencies are available
-- **Permission issues**: Some checks require admin privileges
+- **Missing imports in cmd/**: Module won't be discovered without proper imports
+- **Wrong package name**: Must use `hostbased` or `networkbased`
+- **Missing modules. prefix**: All types must be prefixed with `modules.`
+- **Wrong file location**: Must be in correct subdirectory
 
 ---
 
@@ -507,16 +672,41 @@ See existing modules for reference:
 
 ## 🎯 **Summary**
 
-Creating a new security assessment module requires:
+Creating a new security assessment module requires these **5 CRITICAL steps**:
 
-1. ✅ **Create `.go` file** in `agents/internal/modules/`
-2. ✅ **Implement ModulePlugin interface** (`GetInfo`, `Execute`, `Validate`)
-3. ✅ **Add plugin constructor** function
-4. ✅ **Include init() function** for auto-registration
-5. ✅ **Test and verify** module appears in dashboard
+### ✅ **Step-by-Step Checklist**
 
-The dynamic system handles everything else automatically - no code changes, no recompilation of other components, no manual registration required!
+1. **📁 File Location & Package**
+   - Place in correct subdirectory: `host-based/` or `network-based/`
+   - Use correct package: `package hostbased` or `package networkbased`
+   - Always import: `"decian-agent/internal/modules"`
 
----
+2. **🏗️ Module Structure**
+   - Implement `modules.ModulePlugin` interface
+   - Use `modules.ModuleInfo` struct with `modules.CategoryHostBased` or `modules.CategoryNetworkBased`
+   - Prefix ALL types with `modules.` (ModuleInfo, AssessmentResult, etc.)
 
-**💡 Tip**: Start with the provided template and gradually add your specific security assessment logic. The system is designed to be developer-friendly while maintaining consistency and reliability.
+3. **🔌 Plugin Registration**
+   - Create plugin constructor: `func NewYourModulePlugin(logger *logger.Logger) modules.ModulePlugin`
+   - Add init function: `modules.RegisterPluginConstructor("CHECK_TYPE", NewYourModulePlugin)`
+
+4. **📝 Constants & Imports**
+   - Add CheckType constant to `agents/internal/modules/types.go`
+   - **CRITICAL**: Add import to `agents/cmd/modules.go` and `agents/cmd/run.go`:
+     ```go
+     _ "decian-agent/internal/modules/network-based"
+     ```
+
+5. **🔨 Build & Test**
+   - Rebuild agent: `go build -o dist/agent.exe .`
+   - Test discovery: `./dist/agent.exe modules --json`
+   - Verify module appears in dashboard
+
+### ⚠️ **Critical Success Factors**
+
+- **Import statements in cmd/ files** - Without these, modules won't be discovered
+- **Correct package names** - `hostbased` vs `networkbased`
+- **modules.* prefixes** - All types must be prefixed
+- **Proper file locations** - Must be in category subdirectories
+
+**💡 Tip**: Follow the updated templates exactly - they now include all correct patterns for successful module integration!

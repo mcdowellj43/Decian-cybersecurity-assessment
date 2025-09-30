@@ -100,8 +100,9 @@ const (
 	RiskLevelCritical = "CRITICAL"
 )
 
-// CheckType constants (new security-focused modules)
+// CheckType constants (security-focused modules)
 const (
+	// Host-based modules
 	CheckTypeMisconfigurationDiscovery  = "MISCONFIGURATION_DISCOVERY"
 	CheckTypeWeakPasswordDetection      = "WEAK_PASSWORD_DETECTION"
 	CheckTypeDataExposureCheck          = "DATA_EXPOSURE_CHECK"
@@ -112,6 +113,16 @@ const (
 	CheckTypePasswordPolicyWeakness     = "PASSWORD_POLICY_WEAKNESS"
 	CheckTypeOpenServicePortID          = "OPEN_SERVICE_PORT_ID"
 	CheckTypeUserBehaviorRiskSignals    = "USER_BEHAVIOR_RISK_SIGNALS"
+
+	// Network-based modules
+	CheckTypePortServiceDiscovery = "PORT_SERVICE_DISCOVERY"
+	CheckTypeOSFingerprinting     = "OS_FINGERPRINTING"
+	CheckTypeSMBShareDiscovery    = "SMB_SHARE_DISCOVERY"
+	CheckTypeWebPortalDiscovery   = "WEB_PORTAL_DISCOVERY"
+	CheckTypeTrafficVisibility    = "TRAFFIC_VISIBILITY"
+	CheckTypeRemoteAccessExposure = "REMOTE_ACCESS_EXPOSURE"
+	CheckTypeDNSHygieneCheck      = "DNS_HYGIENE_CHECK"
+	CheckTypePrinterEnumeration   = "PRINTER_ENUMERATION"
 )
 
 // Module Category constants
