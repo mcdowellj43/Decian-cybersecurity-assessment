@@ -1,7 +1,8 @@
-package modules
+package hostbased
 
 import (
 	"decian-agent/internal/logger"
+	"decian-agent/internal/modules"
 	"fmt"
 	"runtime"
 	"strings"
@@ -13,26 +14,46 @@ import (
 // MisconfigurationDiscoveryModule implements misconfiguration discovery assessment
 type MisconfigurationDiscoveryModule struct {
 	logger *logger.Logger
-	TargetAware
+	modules.TargetAware
 }
 
 // NewMisconfigurationDiscoveryModule creates a new misconfiguration discovery module
-func NewMisconfigurationDiscoveryModule(logger *logger.Logger) Module {
+// This constructor is used by both the legacy system and the new plugin system
+func NewMisconfigurationDiscoveryModule(logger *logger.Logger) modules.Module {
 	return &MisconfigurationDiscoveryModule{
 		logger: logger,
 	}
 }
 
-// Info returns information about the module
-func (m *MisconfigurationDiscoveryModule) Info() ModuleInfo {
-	return ModuleInfo{
+// NewMisconfigurationDiscoveryModulePlugin creates a new instance for the plugin system
+// This follows the plugin constructor pattern for auto-discovery
+func NewMisconfigurationDiscoveryModulePlugin(logger *logger.Logger) modules.ModulePlugin {
+	return &MisconfigurationDiscoveryModule{
+		logger: logger,
+	}
+}
+
+// init registers this module for auto-discovery
+func init() {
+	modules.RegisterPluginConstructor(modules.CheckTypeMisconfigurationDiscovery, NewMisconfigurationDiscoveryModulePlugin)
+}
+
+// GetInfo returns information about the module (modules.ModulePlugin interface)
+func (m *MisconfigurationDiscoveryModule) GetInfo() modules.ModuleInfo {
+	return modules.ModuleInfo{
 		Name:             "Misconfiguration Discovery",
 		Description:      "Scan for risky configurations such as open RDP, permissive firewall rules, guest accounts, insecure protocols",
-		CheckType:        CheckTypeMisconfigurationDiscovery,
+		CheckType:        modules.CheckTypeMisconfigurationDiscovery,
 		Platform:         "windows",
-		DefaultRiskLevel: RiskLevelHigh,
+		DefaultRiskLevel: modules.RiskLevelHigh,
 		RequiresAdmin:    true,
+		Category:         modules.CategoryHostBased,
 	}
+}
+
+// Info returns information about the module (legacy modules.Module interface)
+func (m *MisconfigurationDiscoveryModule) Info() modules.ModuleInfo {
+	return m.GetInfo()
 }
 
 // Validate checks if the module can run in the current environment
@@ -44,11 +65,11 @@ func (m *MisconfigurationDiscoveryModule) Validate() error {
 }
 
 // Execute runs the misconfiguration discovery assessment
-func (m *MisconfigurationDiscoveryModule) Execute() (*AssessmentResult, error) {
+func (m *MisconfigurationDiscoveryModule) Execute() (*modules.AssessmentResult, error) {
 	m.logger.Info("Starting misconfiguration discovery assessment")
 
-	result := &AssessmentResult{
-		CheckType: CheckTypeMisconfigurationDiscovery,
+	result := &modules.AssessmentResult{
+		CheckType: modules.CheckTypeMisconfigurationDiscovery,
 		Data:      make(map[string]interface{}),
 		Timestamp: time.Now(),
 	}
@@ -114,7 +135,7 @@ func (m *MisconfigurationDiscoveryModule) Execute() (*AssessmentResult, error) {
 	result.Data["findings"] = findings
 	result.Data["total_issues"] = len(findings)
 	result.RiskScore = riskScore
-	result.RiskLevel = DetermineRiskLevel(riskScore)
+	result.RiskLevel = modules.DetermineRiskLevel(riskScore)
 
 	m.logger.Info("Misconfiguration discovery completed", map[string]interface{}{
 		"findings_count": len(findings),

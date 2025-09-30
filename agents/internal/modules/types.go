@@ -20,12 +20,14 @@ type ModuleInfo struct {
 	Platform         string `json:"platform"`
 	DefaultRiskLevel string `json:"defaultRiskLevel"`
 	RequiresAdmin    bool   `json:"requiresAdmin"`
+	Category         string `json:"category"` // "host-based" or "network-based"
 }
 
-// Module interface that all assessment modules must implement
-type Module interface {
-	// Info returns information about the module
-	Info() ModuleInfo
+// ModulePlugin is the main interface that all assessment modules must implement
+// This is the new plugin interface for dynamic module loading
+type ModulePlugin interface {
+	// GetInfo returns information about the module
+	GetInfo() ModuleInfo
 
 	// Execute runs the assessment and returns the result
 	Execute() (*AssessmentResult, error)
@@ -34,13 +36,42 @@ type Module interface {
 	Validate() error
 }
 
+// Module interface that all assessment modules must implement
+// This maintains backward compatibility with existing modules
+type Module interface {
+	ModulePlugin // Embed the new plugin interface
+
+	// Info returns information about the module (legacy method)
+	Info() ModuleInfo
+}
+
 // TargetContext represents metadata about the current execution target.
 type TargetContext struct {
 	IP       string
 	Metadata map[string]interface{}
 }
 
+// TargetAwarePlugin is implemented by plugins that need to know the current target.
+type TargetAwarePlugin interface {
+	ModulePlugin
+	SetTarget(TargetContext)
+}
+
+// ConfigurablePlugin is implemented by plugins that accept runtime configuration.
+type ConfigurablePlugin interface {
+	ModulePlugin
+	Configure(config map[string]interface{}) error
+}
+
+// VersionedPlugin is implemented by plugins that provide version information.
+type VersionedPlugin interface {
+	ModulePlugin
+	GetVersion() string
+	GetCompatibilityVersion() string
+}
+
 // TargetAwareModule is implemented by modules that need to know the current target.
+// This maintains backward compatibility with existing modules
 type TargetAwareModule interface {
 	Module
 	SetTarget(TargetContext)
@@ -81,6 +112,12 @@ const (
 	CheckTypePasswordPolicyWeakness     = "PASSWORD_POLICY_WEAKNESS"
 	CheckTypeOpenServicePortID          = "OPEN_SERVICE_PORT_ID"
 	CheckTypeUserBehaviorRiskSignals    = "USER_BEHAVIOR_RISK_SIGNALS"
+)
+
+// Module Category constants
+const (
+	CategoryHostBased    = "host-based"
+	CategoryNetworkBased = "network-based"
 )
 
 // CalculateRiskScore calculates a risk score based on findings

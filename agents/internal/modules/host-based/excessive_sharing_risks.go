@@ -1,7 +1,8 @@
-package modules
+package hostbased
 
 import (
 	"decian-agent/internal/logger"
+	"decian-agent/internal/modules"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,26 +16,46 @@ import (
 // ExcessiveSharingRisksModule implements excessive sharing and collaboration risks assessment
 type ExcessiveSharingRisksModule struct {
 	logger *logger.Logger
-	TargetAware
+	modules.TargetAware
 }
 
 // NewExcessiveSharingRisksModule creates a new excessive sharing risks module
-func NewExcessiveSharingRisksModule(logger *logger.Logger) Module {
+// This constructor is used by both the legacy system and the new plugin system
+func NewExcessiveSharingRisksModule(logger *logger.Logger) modules.Module {
 	return &ExcessiveSharingRisksModule{
 		logger: logger,
 	}
 }
 
-// Info returns information about the module
-func (m *ExcessiveSharingRisksModule) Info() ModuleInfo {
-	return ModuleInfo{
+// NewExcessiveSharingRisksModulePlugin creates a new instance for the plugin system
+// This follows the plugin constructor pattern for auto-discovery
+func NewExcessiveSharingRisksModulePlugin(logger *logger.Logger) modules.ModulePlugin {
+	return &ExcessiveSharingRisksModule{
+		logger: logger,
+	}
+}
+
+// init registers this module for auto-discovery
+func init() {
+	modules.RegisterPluginConstructor(modules.CheckTypeExcessiveSharingRisks, NewExcessiveSharingRisksModulePlugin)
+}
+
+// GetInfo returns information about the module (modules.ModulePlugin interface)
+func (m *ExcessiveSharingRisksModule) GetInfo() modules.ModuleInfo {
+	return modules.ModuleInfo{
 		Name:             "Excessive Sharing & Collaboration Risks",
 		Description:      "Analyze network shares, file permissions, cloud storage sync, and collaboration tool configurations for data exposure risks",
-		CheckType:        CheckTypeExcessiveSharingRisks,
+		CheckType:        modules.CheckTypeExcessiveSharingRisks,
 		Platform:         "windows",
-		DefaultRiskLevel: RiskLevelMedium,
+		DefaultRiskLevel: modules.RiskLevelMedium,
 		RequiresAdmin:    true,
+		Category:         modules.CategoryHostBased,
 	}
+}
+
+// Info returns information about the module (legacy modules.Module interface)
+func (m *ExcessiveSharingRisksModule) Info() modules.ModuleInfo {
+	return m.GetInfo()
 }
 
 // Validate checks if the module can run in the current environment
@@ -46,11 +67,11 @@ func (m *ExcessiveSharingRisksModule) Validate() error {
 }
 
 // Execute runs the excessive sharing risks assessment
-func (m *ExcessiveSharingRisksModule) Execute() (*AssessmentResult, error) {
+func (m *ExcessiveSharingRisksModule) Execute() (*modules.AssessmentResult, error) {
 	m.logger.Info("Starting excessive sharing risks assessment")
 
-	result := &AssessmentResult{
-		CheckType: CheckTypeExcessiveSharingRisks,
+	result := &modules.AssessmentResult{
+		CheckType: modules.CheckTypeExcessiveSharingRisks,
 		Data:      make(map[string]interface{}),
 		Timestamp: time.Now(),
 	}
@@ -116,7 +137,7 @@ func (m *ExcessiveSharingRisksModule) Execute() (*AssessmentResult, error) {
 	result.Data["findings"] = findings
 	result.Data["total_issues"] = len(findings)
 	result.RiskScore = riskScore
-	result.RiskLevel = DetermineRiskLevel(riskScore)
+	result.RiskLevel = modules.DetermineRiskLevel(riskScore)
 
 	m.logger.Info("Excessive sharing risks assessment completed", map[string]interface{}{
 		"findings_count": len(findings),

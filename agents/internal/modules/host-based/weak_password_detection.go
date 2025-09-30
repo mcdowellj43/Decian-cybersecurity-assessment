@@ -1,7 +1,8 @@
-package modules
+package hostbased
 
 import (
 	"decian-agent/internal/logger"
+	"decian-agent/internal/modules"
 	"fmt"
 	"runtime"
 	"strings"
@@ -13,26 +14,46 @@ import (
 // WeakPasswordDetectionModule implements weak password detection assessment
 type WeakPasswordDetectionModule struct {
 	logger *logger.Logger
-	TargetAware
+	modules.TargetAware
 }
 
 // NewWeakPasswordDetectionModule creates a new weak password detection module
-func NewWeakPasswordDetectionModule(logger *logger.Logger) Module {
+// This constructor is used by both the legacy system and the new plugin system
+func NewWeakPasswordDetectionModule(logger *logger.Logger) modules.Module {
 	return &WeakPasswordDetectionModule{
 		logger: logger,
 	}
 }
 
-// Info returns information about the module
-func (m *WeakPasswordDetectionModule) Info() ModuleInfo {
-	return ModuleInfo{
+// NewWeakPasswordDetectionModulePlugin creates a new instance for the plugin system
+// This follows the plugin constructor pattern for auto-discovery
+func NewWeakPasswordDetectionModulePlugin(logger *logger.Logger) modules.ModulePlugin {
+	return &WeakPasswordDetectionModule{
+		logger: logger,
+	}
+}
+
+// init registers this module for auto-discovery
+func init() {
+	modules.RegisterPluginConstructor(modules.CheckTypeWeakPasswordDetection, NewWeakPasswordDetectionModulePlugin)
+}
+
+// GetInfo returns information about the module (modules.ModulePlugin interface)
+func (m *WeakPasswordDetectionModule) GetInfo() modules.ModuleInfo {
+	return modules.ModuleInfo{
 		Name:             "Weak Password Detection",
 		Description:      "Identify accounts using vendor defaults or passwords found in breach dictionaries",
-		CheckType:        CheckTypeWeakPasswordDetection,
+		CheckType:        modules.CheckTypeWeakPasswordDetection,
 		Platform:         "windows",
-		DefaultRiskLevel: RiskLevelHigh,
+		DefaultRiskLevel: modules.RiskLevelHigh,
 		RequiresAdmin:    true,
+		Category:         modules.CategoryHostBased,
 	}
+}
+
+// Info returns information about the module (legacy modules.Module interface)
+func (m *WeakPasswordDetectionModule) Info() modules.ModuleInfo {
+	return m.GetInfo()
 }
 
 // Validate checks if the module can run in the current environment
@@ -44,11 +65,11 @@ func (m *WeakPasswordDetectionModule) Validate() error {
 }
 
 // Execute runs the weak password detection assessment
-func (m *WeakPasswordDetectionModule) Execute() (*AssessmentResult, error) {
+func (m *WeakPasswordDetectionModule) Execute() (*modules.AssessmentResult, error) {
 	m.logger.Info("Starting weak password detection assessment")
 
-	result := &AssessmentResult{
-		CheckType: CheckTypeWeakPasswordDetection,
+	result := &modules.AssessmentResult{
+		CheckType: modules.CheckTypeWeakPasswordDetection,
 		Data:      make(map[string]interface{}),
 		Timestamp: time.Now(),
 	}
@@ -114,7 +135,7 @@ func (m *WeakPasswordDetectionModule) Execute() (*AssessmentResult, error) {
 	result.Data["findings"] = findings
 	result.Data["total_issues"] = len(findings)
 	result.RiskScore = riskScore
-	result.RiskLevel = DetermineRiskLevel(riskScore)
+	result.RiskLevel = modules.DetermineRiskLevel(riskScore)
 
 	m.logger.Info("Weak password detection completed", map[string]interface{}{
 		"findings_count": len(findings),

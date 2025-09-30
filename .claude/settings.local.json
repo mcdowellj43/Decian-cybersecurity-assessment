@@ -52,7 +52,10 @@
       "Bash(sqlite3:*)",
       "Bash(./decian-agent-new.exe run --verbose)",
       "Bash(./decian-agent-fixed.exe run --verbose)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(./test-agent.exe run --list-modules)",
+      "Bash(ping:*)",
+      "Bash(rg:*)"
     ],
     "deny": [],
     "ask": []

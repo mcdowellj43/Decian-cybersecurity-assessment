@@ -1,5 +1,18 @@
 # CLAUDE.md - Cybersecurity Risk Assessment Platform
 
+## CURRENT IMPLEMENTATION PHASE: DYNAMIC AGENT MODULES
+**IMPORTANT**: We are currently implementing dynamic agent module loading. Reference the `dynamic-agent-modules.md` file for the complete implementation plan, architecture details, and step-by-step instructions. This will enable adding new assessment modules by simply adding .go files to `/internal/modules/` without requiring code changes or recompilation.
+
+**PHASE 1 STATUS**: ✅ COMPLETED - Core plugin architecture implemented
+- Plugin interfaces defined in `agents/internal/modules/types.go`
+- PluginManager system created in `agents/internal/modules/plugin_manager.go`
+- Module template and development guide created in `agents/internal/modules/`
+
+**ADDITIONAL DEVELOPMENT RESOURCES**:
+- **Module Development Guide**: `agents/internal/modules/MODULE_DEVELOPMENT_GUIDE.md` - Complete step-by-step guide for creating new modules
+- **Module Template**: `agents/internal/modules/template_module.go` - Copy-paste template for new modules
+- **Plugin Architecture**: All new modules must implement the `ModulePlugin` interface for auto-discovery
+
 # Starting and Stopping the services
 # The frontend always runs on port 3000, the backend, on 3001, and prisma DB on 5557
 # To start the services, run the ./start-services.sh script

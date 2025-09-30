@@ -1,7 +1,8 @@
-package modules
+package hostbased
 
 import (
 	"decian-agent/internal/logger"
+	"decian-agent/internal/modules"
 	"fmt"
 	"runtime"
 	"strings"
@@ -13,26 +14,46 @@ import (
 // ElevatedPermissionsReportModule implements elevated permissions assessment
 type ElevatedPermissionsReportModule struct {
 	logger *logger.Logger
-	TargetAware
+	modules.TargetAware
 }
 
 // NewElevatedPermissionsReportModule creates a new elevated permissions report module
-func NewElevatedPermissionsReportModule(logger *logger.Logger) Module {
+// This constructor is used by both the legacy system and the new plugin system
+func NewElevatedPermissionsReportModule(logger *logger.Logger) modules.Module {
 	return &ElevatedPermissionsReportModule{
 		logger: logger,
 	}
 }
 
-// Info returns information about the module
-func (m *ElevatedPermissionsReportModule) Info() ModuleInfo {
-	return ModuleInfo{
+// NewElevatedPermissionsReportModulePlugin creates a new instance for the plugin system
+// This follows the plugin constructor pattern for auto-discovery
+func NewElevatedPermissionsReportModulePlugin(logger *logger.Logger) modules.ModulePlugin {
+	return &ElevatedPermissionsReportModule{
+		logger: logger,
+	}
+}
+
+// init registers this module for auto-discovery
+func init() {
+	modules.RegisterPluginConstructor(modules.CheckTypeElevatedPermissionsReport, NewElevatedPermissionsReportModulePlugin)
+}
+
+// GetInfo returns information about the module (modules.ModulePlugin interface)
+func (m *ElevatedPermissionsReportModule) GetInfo() modules.ModuleInfo {
+	return modules.ModuleInfo{
 		Name:             "Elevated Permissions Report",
 		Description:      "Identify accounts with administrative privileges, service accounts with high privileges, and privilege escalation risks",
-		CheckType:        CheckTypeElevatedPermissionsReport,
+		CheckType:        modules.CheckTypeElevatedPermissionsReport,
 		Platform:         "windows",
-		DefaultRiskLevel: RiskLevelHigh,
+		DefaultRiskLevel: modules.RiskLevelHigh,
 		RequiresAdmin:    true,
+		Category:         modules.CategoryHostBased,
 	}
+}
+
+// Info returns information about the module (legacy modules.Module interface)
+func (m *ElevatedPermissionsReportModule) Info() modules.ModuleInfo {
+	return m.GetInfo()
 }
 
 // Validate checks if the module can run in the current environment
@@ -44,11 +65,11 @@ func (m *ElevatedPermissionsReportModule) Validate() error {
 }
 
 // Execute runs the elevated permissions assessment
-func (m *ElevatedPermissionsReportModule) Execute() (*AssessmentResult, error) {
+func (m *ElevatedPermissionsReportModule) Execute() (*modules.AssessmentResult, error) {
 	m.logger.Info("Starting elevated permissions assessment")
 
-	result := &AssessmentResult{
-		CheckType: CheckTypeElevatedPermissionsReport,
+	result := &modules.AssessmentResult{
+		CheckType: modules.CheckTypeElevatedPermissionsReport,
 		Data:      make(map[string]interface{}),
 		Timestamp: time.Now(),
 	}
@@ -114,7 +135,7 @@ func (m *ElevatedPermissionsReportModule) Execute() (*AssessmentResult, error) {
 	result.Data["findings"] = findings
 	result.Data["total_issues"] = len(findings)
 	result.RiskScore = riskScore
-	result.RiskLevel = DetermineRiskLevel(riskScore)
+	result.RiskLevel = modules.DetermineRiskLevel(riskScore)
 
 	m.logger.Info("Elevated permissions assessment completed", map[string]interface{}{
 		"findings_count": len(findings),

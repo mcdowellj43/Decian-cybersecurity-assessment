@@ -10,6 +10,7 @@ import {
   agentHeartbeat,
   getAgentStats,
   downloadAgent,
+  getAgentModules,
 } from '@/controllers/agentController';
 import { nextJobs } from '@/controllers/jobController';
 import { UserRole } from '@prisma/client';
@@ -61,6 +62,13 @@ router.get('/', getAgents);
  * @access  Private (VIEWER+)
  */
 router.get('/:id', getAgentById);
+
+/**
+ * @route   GET /api/agents/:id/modules
+ * @desc    Get available modules from specific agent
+ * @access  Private (VIEWER+)
+ */
+router.get('/:id/modules', getAgentModules);
 
 /**
  * @route   PUT /api/agents/:id

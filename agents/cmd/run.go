@@ -15,6 +15,9 @@ import (
 	"decian-agent/internal/modules"
 	"decian-agent/internal/network"
 	"github.com/spf13/cobra"
+
+	// Import host-based modules for auto-registration
+	_ "decian-agent/internal/modules/host-based"
 )
 
 const (
@@ -589,15 +592,22 @@ func listAvailableModules() error {
 	fmt.Println("Available Assessment Modules:")
 	fmt.Println()
 
-	moduleList := modules.GetAvailableModules()
+	// Use the plugin manager to get dynamic module information
+	log := logger.NewLogger(false)
+	runner := modules.NewRunner(log, 600) // 10 min timeout for module listing
+	moduleList := runner.GetAvailableModulesFromPluginManager()
+
 	for _, module := range moduleList {
 		fmt.Printf("  %s\n", module.Name)
+		fmt.Printf("    Check Type: %s\n", module.CheckType)
 		fmt.Printf("    Description: %s\n", module.Description)
 		fmt.Printf("    Risk Level: %s\n", module.DefaultRiskLevel)
 		fmt.Printf("    Platform: %s\n", module.Platform)
+		fmt.Printf("    Requires Admin: %t\n", module.RequiresAdmin)
 		fmt.Println()
 	}
 
+	fmt.Printf("Total modules available: %d\n", len(moduleList))
 	return nil
 }
 

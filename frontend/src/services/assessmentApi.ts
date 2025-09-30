@@ -1,16 +1,7 @@
 import { apiClient, handleApiResponse, handleApiError } from './apiClient';
 
-export type CheckType =
-  | 'MISCONFIGURATION_DISCOVERY'
-  | 'WEAK_PASSWORD_DETECTION'
-  | 'DATA_EXPOSURE_CHECK'
-  | 'PHISHING_EXPOSURE_INDICATORS'
-  | 'PATCH_UPDATE_STATUS'
-  | 'ELEVATED_PERMISSIONS_REPORT'
-  | 'EXCESSIVE_SHARING_RISKS'
-  | 'PASSWORD_POLICY_WEAKNESS'
-  | 'OPEN_SERVICE_PORT_ID'
-  | 'USER_BEHAVIOR_RISK_SIGNALS';
+// CheckType is now dynamic - defined by the available modules from each agent
+export type CheckType = string;
 
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 

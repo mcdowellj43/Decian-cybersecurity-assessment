@@ -1,7 +1,8 @@
-package modules
+package hostbased
 
 import (
 	"decian-agent/internal/logger"
+	"decian-agent/internal/modules"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,26 +16,46 @@ import (
 // PhishingExposureIndicatorsModule implements phishing exposure assessment
 type PhishingExposureIndicatorsModule struct {
 	logger *logger.Logger
-	TargetAware
+	modules.TargetAware
 }
 
 // NewPhishingExposureIndicatorsModule creates a new phishing exposure indicators module
-func NewPhishingExposureIndicatorsModule(logger *logger.Logger) Module {
+// This constructor is used by both the legacy system and the new plugin system
+func NewPhishingExposureIndicatorsModule(logger *logger.Logger) modules.Module {
 	return &PhishingExposureIndicatorsModule{
 		logger: logger,
 	}
 }
 
-// Info returns information about the module
-func (m *PhishingExposureIndicatorsModule) Info() ModuleInfo {
-	return ModuleInfo{
+// NewPhishingExposureIndicatorsModulePlugin creates a new instance for the plugin system
+// This follows the plugin constructor pattern for auto-discovery
+func NewPhishingExposureIndicatorsModulePlugin(logger *logger.Logger) modules.ModulePlugin {
+	return &PhishingExposureIndicatorsModule{
+		logger: logger,
+	}
+}
+
+// init registers this module for auto-discovery
+func init() {
+	modules.RegisterPluginConstructor(modules.CheckTypePhishingExposureIndicators, NewPhishingExposureIndicatorsModulePlugin)
+}
+
+// GetInfo returns information about the module (modules.ModulePlugin interface)
+func (m *PhishingExposureIndicatorsModule) GetInfo() modules.ModuleInfo {
+	return modules.ModuleInfo{
 		Name:             "Phishing Exposure Indicators",
 		Description:      "Detect browser configurations, email settings, and security features that increase phishing susceptibility",
-		CheckType:        CheckTypePhishingExposureIndicators,
+		CheckType:        modules.CheckTypePhishingExposureIndicators,
 		Platform:         "windows",
-		DefaultRiskLevel: RiskLevelHigh,
+		DefaultRiskLevel: modules.RiskLevelHigh,
 		RequiresAdmin:    false,
+		Category:         modules.CategoryHostBased,
 	}
+}
+
+// Info returns information about the module (legacy modules.Module interface)
+func (m *PhishingExposureIndicatorsModule) Info() modules.ModuleInfo {
+	return m.GetInfo()
 }
 
 // Validate checks if the module can run in the current environment
@@ -46,11 +67,11 @@ func (m *PhishingExposureIndicatorsModule) Validate() error {
 }
 
 // Execute runs the phishing exposure assessment
-func (m *PhishingExposureIndicatorsModule) Execute() (*AssessmentResult, error) {
+func (m *PhishingExposureIndicatorsModule) Execute() (*modules.AssessmentResult, error) {
 	m.logger.Info("Starting phishing exposure indicators assessment")
 
-	result := &AssessmentResult{
-		CheckType: CheckTypePhishingExposureIndicators,
+	result := &modules.AssessmentResult{
+		CheckType: modules.CheckTypePhishingExposureIndicators,
 		Data:      make(map[string]interface{}),
 		Timestamp: time.Now(),
 	}
@@ -116,7 +137,7 @@ func (m *PhishingExposureIndicatorsModule) Execute() (*AssessmentResult, error) 
 	result.Data["findings"] = findings
 	result.Data["total_issues"] = len(findings)
 	result.RiskScore = riskScore
-	result.RiskLevel = DetermineRiskLevel(riskScore)
+	result.RiskLevel = modules.DetermineRiskLevel(riskScore)
 
 	m.logger.Info("Phishing exposure indicators assessment completed", map[string]interface{}{
 		"findings_count": len(findings),

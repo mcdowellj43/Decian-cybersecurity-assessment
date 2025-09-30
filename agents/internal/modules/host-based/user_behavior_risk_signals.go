@@ -1,7 +1,8 @@
-package modules
+package hostbased
 
 import (
 	"decian-agent/internal/logger"
+	"decian-agent/internal/modules"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,26 +16,46 @@ import (
 // UserBehaviorRiskSignalsModule implements user behavior risk signals assessment
 type UserBehaviorRiskSignalsModule struct {
 	logger *logger.Logger
-	TargetAware
+	modules.TargetAware
 }
 
 // NewUserBehaviorRiskSignalsModule creates a new user behavior risk signals module
-func NewUserBehaviorRiskSignalsModule(logger *logger.Logger) Module {
+// This constructor is used by both the legacy system and the new plugin system
+func NewUserBehaviorRiskSignalsModule(logger *logger.Logger) modules.Module {
 	return &UserBehaviorRiskSignalsModule{
 		logger: logger,
 	}
 }
 
-// Info returns information about the module
-func (m *UserBehaviorRiskSignalsModule) Info() ModuleInfo {
-	return ModuleInfo{
+// NewUserBehaviorRiskSignalsModulePlugin creates a new instance for the plugin system
+// This follows the plugin constructor pattern for auto-discovery
+func NewUserBehaviorRiskSignalsModulePlugin(logger *logger.Logger) modules.ModulePlugin {
+	return &UserBehaviorRiskSignalsModule{
+		logger: logger,
+	}
+}
+
+// init registers this module for auto-discovery
+func init() {
+	modules.RegisterPluginConstructor(modules.CheckTypeUserBehaviorRiskSignals, NewUserBehaviorRiskSignalsModulePlugin)
+}
+
+// GetInfo returns information about the module (modules.ModulePlugin interface)
+func (m *UserBehaviorRiskSignalsModule) GetInfo() modules.ModuleInfo {
+	return modules.ModuleInfo{
 		Name:             "User Behavior Risk Signals",
 		Description:      "Analyze user activity patterns, installed applications, browser usage, and system configurations for security risk indicators",
-		CheckType:        CheckTypeUserBehaviorRiskSignals,
+		CheckType:        modules.CheckTypeUserBehaviorRiskSignals,
 		Platform:         "windows",
-		DefaultRiskLevel: RiskLevelMedium,
+		DefaultRiskLevel: modules.RiskLevelMedium,
 		RequiresAdmin:    false,
+		Category:         modules.CategoryHostBased,
 	}
+}
+
+// Info returns information about the module (legacy modules.Module interface)
+func (m *UserBehaviorRiskSignalsModule) Info() modules.ModuleInfo {
+	return m.GetInfo()
 }
 
 // Validate checks if the module can run in the current environment
@@ -46,11 +67,11 @@ func (m *UserBehaviorRiskSignalsModule) Validate() error {
 }
 
 // Execute runs the user behavior risk signals assessment
-func (m *UserBehaviorRiskSignalsModule) Execute() (*AssessmentResult, error) {
+func (m *UserBehaviorRiskSignalsModule) Execute() (*modules.AssessmentResult, error) {
 	m.logger.Info("Starting user behavior risk signals assessment")
 
-	result := &AssessmentResult{
-		CheckType: CheckTypeUserBehaviorRiskSignals,
+	result := &modules.AssessmentResult{
+		CheckType: modules.CheckTypeUserBehaviorRiskSignals,
 		Data:      make(map[string]interface{}),
 		Timestamp: time.Now(),
 	}
@@ -116,7 +137,7 @@ func (m *UserBehaviorRiskSignalsModule) Execute() (*AssessmentResult, error) {
 	result.Data["findings"] = findings
 	result.Data["total_issues"] = len(findings)
 	result.RiskScore = riskScore
-	result.RiskLevel = DetermineRiskLevel(riskScore)
+	result.RiskLevel = modules.DetermineRiskLevel(riskScore)
 
 	m.logger.Info("User behavior risk signals assessment completed", map[string]interface{}{
 		"findings_count": len(findings),

@@ -258,16 +258,20 @@ func probeARP(ip string, timeout time.Duration) bool {
 
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		cmd = exec.CommandContext(ctx, "arp", "-a", ip)
+		// On Windows, use ping with minimal timeout to trigger ARP resolution
+		// This actively sends an ARP request rather than checking cache
+		timeoutMs := int(timeout.Milliseconds())
+		if timeoutMs < 100 {
+			timeoutMs = 100 // Minimum viable timeout
+		}
+		cmd = exec.CommandContext(ctx, "ping", "-n", "1", "-w", fmt.Sprintf("%d", timeoutMs), ip)
 	} else {
-		cmd = exec.CommandContext(ctx, "arp", "-n", ip)
+		// On Unix systems, use arping for dedicated ARP scanning
+		cmd = exec.CommandContext(ctx, "arping", "-c", "1", "-W", fmt.Sprintf("%d", int(timeout.Seconds())), ip)
 	}
 
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return false
-	}
-	return strings.Contains(strings.ToLower(string(output)), strings.ToLower(ip))
+	// The command success indicates the host responded to ARP/ping
+	return cmd.Run() == nil
 }
 
 func probeTCP(ip string, ports []int, timeout time.Duration) bool {

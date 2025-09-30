@@ -1,7 +1,8 @@
-package modules
+package hostbased
 
 import (
 	"decian-agent/internal/logger"
+	"decian-agent/internal/modules"
 	"fmt"
 	"net"
 	"runtime"
@@ -14,26 +15,46 @@ import (
 // OpenServicePortIDModule implements open service and port identification assessment
 type OpenServicePortIDModule struct {
 	logger *logger.Logger
-	TargetAware
+	modules.TargetAware
 }
 
 // NewOpenServicePortIDModule creates a new open service port identification module
-func NewOpenServicePortIDModule(logger *logger.Logger) Module {
+// This constructor is used by both the legacy system and the new plugin system
+func NewOpenServicePortIDModule(logger *logger.Logger) modules.Module {
 	return &OpenServicePortIDModule{
 		logger: logger,
 	}
 }
 
-// Info returns information about the module
-func (m *OpenServicePortIDModule) Info() ModuleInfo {
-	return ModuleInfo{
+// NewOpenServicePortIDModulePlugin creates a new instance for the plugin system
+// This follows the plugin constructor pattern for auto-discovery
+func NewOpenServicePortIDModulePlugin(logger *logger.Logger) modules.ModulePlugin {
+	return &OpenServicePortIDModule{
+		logger: logger,
+	}
+}
+
+// init registers this module for auto-discovery
+func init() {
+	modules.RegisterPluginConstructor(modules.CheckTypeOpenServicePortID, NewOpenServicePortIDModulePlugin)
+}
+
+// GetInfo returns information about the module (modules.ModulePlugin interface)
+func (m *OpenServicePortIDModule) GetInfo() modules.ModuleInfo {
+	return modules.ModuleInfo{
 		Name:             "Open Service/Port Identification",
 		Description:      "Identify listening services, open ports, and network service configurations that may present security risks",
-		CheckType:        CheckTypeOpenServicePortID,
+		CheckType:        modules.CheckTypeOpenServicePortID,
 		Platform:         "windows",
-		DefaultRiskLevel: RiskLevelMedium,
+		DefaultRiskLevel: modules.RiskLevelMedium,
 		RequiresAdmin:    false,
+		Category:         modules.CategoryHostBased,
 	}
+}
+
+// Info returns information about the module (legacy modules.Module interface)
+func (m *OpenServicePortIDModule) Info() modules.ModuleInfo {
+	return m.GetInfo()
 }
 
 // Validate checks if the module can run in the current environment
@@ -45,11 +66,11 @@ func (m *OpenServicePortIDModule) Validate() error {
 }
 
 // Execute runs the open service port identification assessment
-func (m *OpenServicePortIDModule) Execute() (*AssessmentResult, error) {
+func (m *OpenServicePortIDModule) Execute() (*modules.AssessmentResult, error) {
 	m.logger.Info("Starting open service port identification assessment")
 
-	result := &AssessmentResult{
-		CheckType: CheckTypeOpenServicePortID,
+	result := &modules.AssessmentResult{
+		CheckType: modules.CheckTypeOpenServicePortID,
 		Data:      make(map[string]interface{}),
 		Timestamp: time.Now(),
 	}
@@ -115,7 +136,7 @@ func (m *OpenServicePortIDModule) Execute() (*AssessmentResult, error) {
 	result.Data["findings"] = findings
 	result.Data["total_issues"] = len(findings)
 	result.RiskScore = riskScore
-	result.RiskLevel = DetermineRiskLevel(riskScore)
+	result.RiskLevel = modules.DetermineRiskLevel(riskScore)
 
 	m.logger.Info("Open service port identification assessment completed", map[string]interface{}{
 		"findings_count": len(findings),

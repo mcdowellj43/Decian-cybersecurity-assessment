@@ -64,23 +64,8 @@ export interface Report {
   organization_name: string;
 }
 
-// Assessment module types
-export type CheckType =
-  | 'accounts-bypass-pass-policy'
-  | 'DC-open-ports-check'
-  | 'DNS-config-check'
-  | 'EOL-software-check'
-  | 'enabled-inactive-accounts'
-  | 'network-protocols-check'
-  | 'pshell-exec-policy-check'
-  | 'service-accounts-domain-admin'
-  | 'privileged-accounts-no-expire'
-  | 'win-feature-security-check'
-  | 'win-firewall-status-check'
-  | 'win-update-check'
-  | 'password-crack'
-  | 'kerberoasted-accounts'
-  | 'smb-signing-check';
+// Assessment module types - now dynamic, defined by agent modules
+export type CheckType = string;
 
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 

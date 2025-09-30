@@ -1,7 +1,8 @@
-package modules
+package hostbased
 
 import (
 	"decian-agent/internal/logger"
+	"decian-agent/internal/modules"
 	"fmt"
 	"io/fs"
 	"os"
@@ -16,26 +17,46 @@ import (
 // DataExposureCheckModule implements data exposure assessment
 type DataExposureCheckModule struct {
 	logger *logger.Logger
-	TargetAware
+	modules.TargetAware
 }
 
 // NewDataExposureCheckModule creates a new data exposure check module
-func NewDataExposureCheckModule(logger *logger.Logger) Module {
+// This constructor is used by both the legacy system and the new plugin system
+func NewDataExposureCheckModule(logger *logger.Logger) modules.Module {
 	return &DataExposureCheckModule{
 		logger: logger,
 	}
 }
 
-// Info returns information about the module
-func (m *DataExposureCheckModule) Info() ModuleInfo {
-	return ModuleInfo{
+// NewDataExposureCheckModulePlugin creates a new instance for the plugin system
+// This follows the plugin constructor pattern for auto-discovery
+func NewDataExposureCheckModulePlugin(logger *logger.Logger) modules.ModulePlugin {
+	return &DataExposureCheckModule{
+		logger: logger,
+	}
+}
+
+// init registers this module for auto-discovery
+func init() {
+	modules.RegisterPluginConstructor(modules.CheckTypeDataExposureCheck, NewDataExposureCheckModulePlugin)
+}
+
+// GetInfo returns information about the module (ModulePlugin interface)
+func (m *DataExposureCheckModule) GetInfo() modules.ModuleInfo {
+	return modules.ModuleInfo{
 		Name:             "Data Exposure Check",
 		Description:      "Scan for exposed sensitive files, cloud storage misconfigurations, and unencrypted data stores",
-		CheckType:        CheckTypeDataExposureCheck,
+		CheckType:        modules.CheckTypeDataExposureCheck,
 		Platform:         "windows",
-		DefaultRiskLevel: RiskLevelHigh,
+		DefaultRiskLevel: modules.RiskLevelHigh,
 		RequiresAdmin:    true,
+		Category:         modules.CategoryHostBased,
 	}
+}
+
+// Info returns information about the module (legacy Module interface)
+func (m *DataExposureCheckModule) Info() modules.ModuleInfo {
+	return m.GetInfo()
 }
 
 // Validate checks if the module can run in the current environment
@@ -47,11 +68,11 @@ func (m *DataExposureCheckModule) Validate() error {
 }
 
 // Execute runs the data exposure assessment
-func (m *DataExposureCheckModule) Execute() (*AssessmentResult, error) {
+func (m *DataExposureCheckModule) Execute() (*modules.AssessmentResult, error) {
 	m.logger.Info("Starting data exposure assessment")
 
-	result := &AssessmentResult{
-		CheckType: CheckTypeDataExposureCheck,
+	result := &modules.AssessmentResult{
+		CheckType: modules.CheckTypeDataExposureCheck,
 		Data:      make(map[string]interface{}),
 		Timestamp: time.Now(),
 	}
@@ -117,7 +138,7 @@ func (m *DataExposureCheckModule) Execute() (*AssessmentResult, error) {
 	result.Data["findings"] = findings
 	result.Data["total_issues"] = len(findings)
 	result.RiskScore = riskScore
-	result.RiskLevel = DetermineRiskLevel(riskScore)
+	result.RiskLevel = modules.DetermineRiskLevel(riskScore)
 
 	m.logger.Info("Data exposure assessment completed", map[string]interface{}{
 		"findings_count": len(findings),

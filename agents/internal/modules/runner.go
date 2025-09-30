@@ -7,24 +7,23 @@ import (
 )
 
 // Runner manages the execution of assessment modules
-type moduleFactory func() Module
 
 type Runner struct {
-	logger  *logger.Logger
-	timeout int
-	modules map[string]moduleFactory
+	logger        *logger.Logger
+	timeout       int
+	pluginManager *PluginManager // Plugin manager for dynamic modules
 }
 
 // NewRunner creates a new module runner
 func NewRunner(logger *logger.Logger, timeout int) *Runner {
 	runner := &Runner{
-		logger:  logger,
-		timeout: timeout,
-		modules: make(map[string]moduleFactory),
+		logger:        logger,
+		timeout:       timeout,
+		pluginManager: NewPluginManager(logger),
 	}
 
-	// Register available modules
-	runner.registerModules()
+	// Use dynamic auto-discovery system
+	runner.pluginManager.DiscoverPlugins()
 
 	return runner
 }
@@ -59,16 +58,42 @@ func (r *Runner) RunModulesForTarget(moduleNames []string, target TargetContext)
 	var errors []ModuleExecutionError
 
 	for _, moduleName := range moduleNames {
-		factory, exists := r.modules[moduleName]
-		if !exists {
-			r.logger.Warn("Module not found", map[string]interface{}{"module": moduleName})
+		// Try to get module from plugin manager first (new system)
+		var module Module
+		var modulePlugin ModulePlugin
+
+		if r.pluginManager.IsPluginRegistered(moduleName) {
+			// Use new plugin system
+			plugin, err := r.pluginManager.CreatePluginInstance(moduleName)
+			if err != nil {
+				r.logger.Warn("Plugin creation failed", map[string]interface{}{
+					"module": moduleName,
+					"error":  err.Error(),
+				})
+				errors = append(errors, ModuleExecutionError{Module: moduleName, Err: err})
+				continue
+			}
+			modulePlugin = plugin
+
+			// Check if it's also a legacy Module (for backward compatibility)
+			if legacyModule, ok := plugin.(Module); ok {
+				module = legacyModule
+			} else {
+				// Create a wrapper to make plugin compatible with legacy Module interface
+				module = &pluginToModuleAdapter{plugin: plugin}
+			}
+		} else {
+			// Module not found in plugin system
+			r.logger.Warn("Module not found in plugin registry", map[string]interface{}{"module": moduleName})
 			errors = append(errors, ModuleExecutionError{Module: moduleName, Err: fmt.Errorf("module not registered")})
 			continue
 		}
 
-		module := factory()
+		// Set target context if the module supports it
 		if targeted, ok := module.(TargetAwareModule); ok {
 			targeted.SetTarget(target)
+		} else if targetedPlugin, ok := modulePlugin.(TargetAwarePlugin); ok {
+			targetedPlugin.SetTarget(target)
 		}
 
 		r.logger.Debug("Starting module execution", map[string]interface{}{
@@ -250,21 +275,39 @@ func GetAvailableModules() []ModuleInfo {
 	return modules
 }
 
-// registerModules registers all available assessment modules
-func (r *Runner) registerModules() {
-	// Register new security assessment modules
-	r.modules[CheckTypeMisconfigurationDiscovery] = func() Module { return NewMisconfigurationDiscoveryModule(r.logger) }
-	r.modules[CheckTypeWeakPasswordDetection] = func() Module { return NewWeakPasswordDetectionModule(r.logger) }
-	r.modules[CheckTypeDataExposureCheck] = func() Module { return NewDataExposureCheckModule(r.logger) }
-	r.modules[CheckTypePhishingExposureIndicators] = func() Module { return NewPhishingExposureIndicatorsModule(r.logger) }
-	r.modules[CheckTypePatchUpdateStatus] = func() Module { return NewPatchUpdateStatusModule(r.logger) }
-	r.modules[CheckTypeElevatedPermissionsReport] = func() Module { return NewElevatedPermissionsReportModule(r.logger) }
-	r.modules[CheckTypeExcessiveSharingRisks] = func() Module { return NewExcessiveSharingRisksModule(r.logger) }
-	r.modules[CheckTypePasswordPolicyWeakness] = func() Module { return NewPasswordPolicyWeaknessModule(r.logger) }
-	r.modules[CheckTypeOpenServicePortID] = func() Module { return NewOpenServicePortIDModule(r.logger) }
-	r.modules[CheckTypeUserBehaviorRiskSignals] = func() Module { return NewUserBehaviorRiskSignalsModule(r.logger) }
 
-	r.logger.Debug("Registered assessment modules", map[string]interface{}{
-		"count": len(r.modules),
-	})
+// pluginToModuleAdapter adapts a ModulePlugin to the legacy Module interface
+// This ensures backward compatibility when using new plugins with legacy code
+type pluginToModuleAdapter struct {
+	plugin ModulePlugin
+}
+
+// GetInfo implements ModulePlugin interface by delegating to the wrapped plugin
+func (a *pluginToModuleAdapter) GetInfo() ModuleInfo {
+	return a.plugin.GetInfo()
+}
+
+// Execute implements ModulePlugin interface by delegating to the wrapped plugin
+func (a *pluginToModuleAdapter) Execute() (*AssessmentResult, error) {
+	return a.plugin.Execute()
+}
+
+// Validate implements ModulePlugin interface by delegating to the wrapped plugin
+func (a *pluginToModuleAdapter) Validate() error {
+	return a.plugin.Validate()
+}
+
+// Info implements the legacy Module interface by delegating to GetInfo
+func (a *pluginToModuleAdapter) Info() ModuleInfo {
+	return a.plugin.GetInfo()
+}
+
+// GetAvailableModulesFromPluginManager returns module info from the plugin manager
+func (r *Runner) GetAvailableModulesFromPluginManager() []ModuleInfo {
+	return r.pluginManager.GetAllPluginInfo()
+}
+
+// GetPluginManager returns the plugin manager instance for external access
+func (r *Runner) GetPluginManager() *PluginManager {
+	return r.pluginManager
 }
