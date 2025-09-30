@@ -395,8 +395,8 @@ function CreateAssessmentModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-6 z-50">
+      <div className="bg-white rounded-lg max-w-7xl w-full max-h-[90vh] overflow-hidden">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-900">Run Security Assessment</h2>
@@ -409,87 +409,137 @@ function CreateAssessmentModal({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Agent
-            </label>
-            {agents.length === 0 ? (
-              <div className="text-center py-8">
-                <Server className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-600 text-sm">No agents available</p>
-                <p className="text-gray-500 text-xs">Deploy an agent first to run assessments</p>
-              </div>
-            ) : (
-              <select
-                value={selectedAgentId}
-                onChange={(e) => setSelectedAgentId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                <option value="">Choose an agent...</option>
-                {agents.map((agent) => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.hostname} ({agent.status})
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Scan Type
-            </label>
-            <div className="flex space-x-4">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="scanType"
-                  value="host"
-                  checked={scanType === 'host'}
-                  onChange={(e) => setScanType(e.target.value as 'host' | 'subnet')}
-                  className="mr-2"
-                />
-                <span className="text-sm text-gray-700">Single Host</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="scanType"
-                  value="subnet"
-                  checked={scanType === 'subnet'}
-                  onChange={(e) => setScanType(e.target.value as 'host' | 'subnet')}
-                  className="mr-2"
-                />
-                <span className="text-sm text-gray-700">Subnet Scan</span>
-              </label>
-            </div>
-          </div>
-
-          {scanType === 'subnet' && (
+        <form onSubmit={handleSubmit} className="flex h-[calc(90vh-140px)]">
+          {/* Left Column - Agent and Scan Options */}
+          <div className="w-1/2 p-6 border-r border-gray-200 flex flex-col space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Subnet CIDR
+                Select Agent
               </label>
-              <input
-                type="text"
-                value={subnet}
-                onChange={(e) => setSubnet(e.target.value)}
-                placeholder="e.g., 192.168.1.0/24"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required={scanType === 'subnet'}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Enter a CIDR notation for the subnet to scan (up to /24 supported)
-              </p>
+              {agents.length === 0 ? (
+                <div className="text-center py-8">
+                  <Server className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-600 text-sm">No agents available</p>
+                  <p className="text-gray-500 text-xs">Deploy an agent first to run assessments</p>
+                </div>
+              ) : (
+                <select
+                  value={selectedAgentId}
+                  onChange={(e) => setSelectedAgentId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Choose an agent...</option>
+                  {agents.map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.hostname} ({agent.status})
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
-          )}
 
-          {selectedAgentId && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-medium text-blue-900">Assessment Modules</h4>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Scan Type
+              </label>
+              <div className="space-y-3">
+                <label className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input
+                    type="radio"
+                    name="scanType"
+                    value="host"
+                    checked={scanType === 'host'}
+                    onChange={(e) => setScanType(e.target.value as 'host' | 'subnet')}
+                    className="mt-1"
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">Single Device Scan</div>
+                    <div className="text-xs text-gray-600">
+                      Scan only the device where the agent is running
+                    </div>
+                  </div>
+                </label>
+                <label className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input
+                    type="radio"
+                    name="scanType"
+                    value="subnet"
+                    checked={scanType === 'subnet'}
+                    onChange={(e) => setScanType(e.target.value as 'host' | 'subnet')}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-gray-900">Subnet Scan</div>
+                    <div className="text-xs text-gray-600 mb-2">
+                      Scan multiple devices across a network subnet
+                    </div>
+                    {scanType === 'subnet' && (
+                      <div>
+                        <input
+                          type="text"
+                          value={subnet}
+                          onChange={(e) => setSubnet(e.target.value)}
+                          placeholder="e.g., 192.168.1.0/24"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required={scanType === 'subnet'}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Enter CIDR notation (up to /24 supported)
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Module Legend */}
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+              <h4 className="text-sm font-medium text-gray-900 mb-2">Module Types</h4>
+              <div className="text-xs text-gray-700 space-y-1">
+                <div className="flex items-center space-x-2">
+                  <span className="inline-block w-3 h-3 bg-blue-100 border border-blue-300 rounded"></span>
+                  <span><strong>Host-Based:</strong> More intrusive, runs on the device</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="inline-block w-3 h-3 bg-purple-100 border border-purple-300 rounded"></span>
+                  <span><strong>Network-Based:</strong> Less intrusive, scans over network</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex space-x-3 mt-auto pt-4">
+              <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                className="flex-1"
+                disabled={!selectedAgentId || isCreating || agents.length === 0 || selectedModules.length === 0}
+              >
+                {isCreating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Run Assessment
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Right Column - Module Selection */}
+          <div className="w-1/2 flex flex-col">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium text-gray-900">Assessment Modules</h4>
                 {availableModules.length > 0 && (
                   <div className="flex space-x-2">
                     <button
@@ -509,29 +559,28 @@ function CreateAssessmentModal({
                   </div>
                 )}
               </div>
+              {selectedModules.length > 0 && (
+                <p className="text-xs text-gray-600 mt-1">
+                  Selected: {selectedModules.length} of {availableModules.length} modules
+                </p>
+              )}
+            </div>
 
-              <div className="mb-4 p-3 bg-blue-25 border border-blue-100 rounded-md">
-                <div className="text-xs text-blue-800 space-y-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="inline-block w-3 h-3 bg-blue-100 border border-blue-300 rounded"></span>
-                    <span><strong>Host-Based:</strong> More intrusive, must be ran by agent on the device</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="inline-block w-3 h-3 bg-purple-100 border border-purple-300 rounded"></span>
-                    <span><strong>Network-Based:</strong> Less intrusive, can be ran from one single agent, over network communications</span>
-                  </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {!selectedAgentId ? (
+                <div className="text-center py-12">
+                  <Server className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-sm text-gray-600">Select an agent to view available modules</p>
                 </div>
-              </div>
-
-              {loadingModules ? (
-                <div className="flex items-center justify-center py-4">
+              ) : loadingModules ? (
+                <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-                  <span className="ml-2 text-sm text-blue-800">Loading modules...</span>
+                  <span className="ml-2 text-sm text-gray-600">Loading modules...</span>
                 </div>
               ) : availableModules.length > 0 ? (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
+                <div className="space-y-3">
                   {availableModules.map((module) => (
-                    <label key={module.checkType} className="flex items-start space-x-2 cursor-pointer">
+                    <label key={module.checkType} className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
                       <input
                         type="checkbox"
                         checked={selectedModules.includes(module.checkType)}
@@ -539,10 +588,10 @@ function CreateAssessmentModal({
                         className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-blue-900">{module.name}</div>
-                        <div className="text-xs text-blue-700 opacity-75">{module.description}</div>
-                        <div className="flex items-center space-x-3 mt-1">
-                          <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        <div className="text-sm font-medium text-gray-900">{module.name}</div>
+                        <div className="text-xs text-gray-600 mt-1">{module.description}</div>
+                        <div className="flex items-center space-x-2 mt-2">
+                          <span className={`text-xs px-2 py-1 rounded ${
                             module.category === 'host-based' ? 'bg-blue-100 text-blue-800' :
                             module.category === 'network-based' ? 'bg-purple-100 text-purple-800' :
                             'bg-gray-100 text-gray-800'
@@ -551,7 +600,7 @@ function CreateAssessmentModal({
                              module.category === 'network-based' ? 'Network-Based' :
                              'Unknown'}
                           </span>
-                          <span className={`text-xs px-1.5 py-0.5 rounded ${
+                          <span className={`text-xs px-2 py-1 rounded ${
                             module.defaultRiskLevel === 'HIGH' ? 'bg-red-100 text-red-800' :
                             module.defaultRiskLevel === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
                             'bg-green-100 text-green-800'
@@ -559,7 +608,7 @@ function CreateAssessmentModal({
                             {module.defaultRiskLevel}
                           </span>
                           {module.requiresAdmin && (
-                            <span className="text-xs text-orange-600">Requires Admin</span>
+                            <span className="text-xs text-orange-600 font-medium">Admin Required</span>
                           )}
                         </div>
                       </div>
@@ -567,44 +616,12 @@ function CreateAssessmentModal({
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-4">
+                <div className="text-center py-12">
                   <p className="text-sm text-gray-600">No modules available</p>
-                  <p className="text-xs text-gray-500">Select an agent first</p>
-                </div>
-              )}
-
-              {selectedModules.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-blue-200">
-                  <p className="text-xs text-blue-800">
-                    Selected: {selectedModules.length} of {availableModules.length} modules
-                  </p>
+                  <p className="text-xs text-gray-500">This agent may not be properly configured</p>
                 </div>
               )}
             </div>
-          )}
-
-          <div className="flex space-x-3 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              className="flex-1"
-              disabled={!selectedAgentId || isCreating || agents.length === 0 || selectedModules.length === 0}
-            >
-              {isCreating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Starting...
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 mr-2" />
-                  Run Assessment
-                </>
-              )}
-            </Button>
           </div>
         </form>
       </div>
