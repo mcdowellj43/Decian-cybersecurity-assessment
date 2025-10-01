@@ -55,7 +55,8 @@
       "WebFetch(domain:github.com)",
       "Bash(./test-agent.exe run --list-modules)",
       "Bash(ping:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(./start-services.sh:*)"
     ],
     "deny": [],
     "ask": []
