@@ -20,7 +20,17 @@ import {
   Clock,
   Info,
   Code,
-  Settings
+  Settings,
+  Server,
+  Globe,
+  Wifi,
+  Monitor,
+  Router,
+  Search,
+  FileSearch,
+  Activity,
+  Radio,
+  Printer
 } from 'lucide-react';
 
 type ModuleInfo = {
@@ -643,51 +653,870 @@ const modules: ModuleInfo[] = [
         }
       ]
     }
+  },
+  // Network-Based Assessment Modules
+  {
+    name: 'Port & Service Discovery',
+    checkType: 'PORT_SERVICE_DISCOVERY',
+    description: 'Discovers open TCP and UDP ports on local network hosts with basic service identification and banner grabbing.',
+    riskLevel: 'MEDIUM',
+    requiresAdmin: false,
+    icon: Network,
+    details: [
+      'Open TCP and UDP port discovery',
+      'Service banner grabbing and identification',
+      'Network service enumeration',
+      'Port-based risk assessment',
+      'Active host detection'
+    ],
+    useCases: [
+      'Network security assessments',
+      'Attack surface analysis',
+      'Service inventory management',
+      'Network asset discovery'
+    ],
+    complianceFrameworks: ['NIST CSF', 'CIS Controls'],
+    technicalDetails: {
+      whatItChecks: [
+        'Common TCP ports (21, 22, 23, 25, 53, 80, 110, 143, 443, 993, 995, 1433, 3306, 3389, 5432, 5900)',
+        'UDP services (53, 69, 123, 161, 514)',
+        'Service banners and version information',
+        'HTTP/HTTPS service detection and headers',
+        'Database service discovery (MySQL, PostgreSQL, MSSQL)'
+      ],
+      howItChecks: [
+        {
+          section: 'Host Discovery',
+          details: [
+            'Enumerates network interfaces and determines local subnets',
+            'Generates target IP ranges within discovered subnets',
+            'Limits scan to reasonable subnet sizes (/20 to /30)',
+            'Uses concurrent scanning with configurable timeout'
+          ]
+        },
+        {
+          section: 'Port Scanning',
+          details: [
+            'TCP connect scans to common service ports',
+            'UDP probes for DNS, SNMP, and other UDP services',
+            'Configurable timeout (default 1000ms per connection)',
+            'Concurrent scanning with rate limiting to avoid network congestion'
+          ]
+        },
+        {
+          section: 'Service Identification',
+          details: [
+            'Banner grabbing for SSH, FTP, SMTP, and other text protocols',
+            'HTTP HEAD requests for web service identification',
+            'Service-specific probes (MySQL handshake, SMB negotiation)',
+            'Version string extraction and normalization'
+          ]
+        },
+        {
+          section: 'Risk Assessment',
+          details: [
+            'Assigns risk levels based on service type and configuration',
+            'Flags unencrypted services (Telnet, FTP, HTTP)',
+            'Identifies potentially vulnerable service versions',
+            'Correlates services with known attack vectors'
+          ]
+        }
+      ],
+      limitations: [
+        'Limited to predefined port list - may miss custom services',
+        'Network timeouts may cause false negatives on slow networks',
+        'Banner grabbing may not work with all service types',
+        'Does not perform deep protocol analysis or vulnerability scanning'
+      ],
+      remediation: [
+        'Close unnecessary ports and disable unused services',
+        'Implement network segmentation to limit service exposure',
+        'Use encrypted alternatives (SSH instead of Telnet, HTTPS instead of HTTP)',
+        'Configure firewalls to restrict access to sensitive services',
+        'Regularly update services to latest versions'
+      ]
+    }
+  },
+  {
+    name: 'Operating System Fingerprinting',
+    checkType: 'OS_FINGERPRINTING',
+    description: 'Identifies remote host operating systems using passive and active fingerprinting techniques including TCP characteristics and service banners.',
+    riskLevel: 'MEDIUM',
+    requiresAdmin: false,
+    icon: Monitor,
+    details: [
+      'TCP/IP stack fingerprinting',
+      'Service banner analysis',
+      'Operating system version detection',
+      'Network behavior analysis',
+      'Device type classification'
+    ],
+    useCases: [
+      'Network asset inventory',
+      'Security posture assessment',
+      'Compliance verification',
+      'Attack surface mapping'
+    ],
+    complianceFrameworks: ['NIST CSF', 'CIS Controls'],
+    technicalDetails: {
+      whatItChecks: [
+        'TCP window sizes, MSS, and other TCP options',
+        'HTTP server headers and signature patterns',
+        'SSH version strings and supported algorithms',
+        'SMB protocol versions and dialects',
+        'DNS response characteristics and behavior'
+      ],
+      howItChecks: [
+        {
+          section: 'TCP Fingerprinting',
+          details: [
+            'Analyzes TCP window scaling and MSS values',
+            'Examines TCP options order and values',
+            'Tests TCP timestamp behavior',
+            'Evaluates ICMP responses and TTL values'
+          ]
+        },
+        {
+          section: 'Service Banner Analysis',
+          details: [
+            'Extracts version information from SSH banners',
+            'Analyzes HTTP Server headers for OS indicators',
+            'Examines SMB negotiation responses',
+            'Correlates service versions with typical OS distributions'
+          ]
+        },
+        {
+          section: 'Behavioral Analysis',
+          details: [
+            'Tests response timing characteristics',
+            'Analyzes error message formats',
+            'Examines default service configurations',
+            'Correlates multiple signals for confidence scoring'
+          ]
+        }
+      ],
+      limitations: [
+        'Modern OS stacks are increasingly similar, reducing accuracy',
+        'Firewalls and NAT can obscure fingerprinting signals',
+        'Virtual machines may present hypervisor characteristics',
+        'Limited effectiveness against hardened or customized systems'
+      ],
+      remediation: [
+        'Configure services to minimize information disclosure',
+        'Use generic or misleading banners where appropriate',
+        'Implement network-level obfuscation techniques',
+        'Deploy deception technologies to confuse attackers'
+      ]
+    }
+  },
+  {
+    name: 'Shared Folder / SMB Discovery',
+    checkType: 'SMB_SHARE_DISCOVERY',
+    description: 'Enumerates SMB shares and detects anonymous access indicators on hosts that expose SMB-related ports without attempting file operations.',
+    riskLevel: 'HIGH',
+    requiresAdmin: false,
+    icon: Share2,
+    details: [
+      'SMB share enumeration',
+      'Anonymous access detection',
+      'Share permission analysis',
+      'NetBIOS name resolution',
+      'SMB version identification'
+    ],
+    useCases: [
+      'Data exposure assessments',
+      'Network share security audits',
+      'Compliance verification',
+      'Lateral movement risk analysis'
+    ],
+    complianceFrameworks: ['SOC 2', 'NIST CSF', 'CIS Controls'],
+    technicalDetails: {
+      whatItChecks: [
+        'SMB/CIFS service availability on ports 139 and 445',
+        'Anonymous share enumeration capabilities',
+        'Default administrative shares (C$, ADMIN$, IPC$)',
+        'NetBIOS name resolution and workgroup information',
+        'SMB protocol version and security features'
+      ],
+      howItChecks: [
+        {
+          section: 'SMB Service Detection',
+          details: [
+            'Scans for SMB services on TCP ports 139 (NetBIOS) and 445 (SMB)',
+            'Attempts SMB protocol negotiation to determine version',
+            'Identifies SMB1, SMB2, and SMB3 protocol support',
+            'Detects signing requirements and encryption capabilities'
+          ]
+        },
+        {
+          section: 'Share Enumeration',
+          details: [
+            'Performs anonymous SMB session establishment',
+            'Enumerates available shares using NetShareEnum API calls',
+            'Identifies share types (disk, print, device, IPC)',
+            'Attempts to list share contents without authentication'
+          ]
+        },
+        {
+          section: 'Access Control Analysis',
+          details: [
+            'Tests anonymous access to discovered shares',
+            'Identifies readable and writable shares',
+            'Checks for default credentials on administrative shares',
+            'Evaluates share-level vs NTFS permissions'
+          ]
+        },
+        {
+          section: 'NetBIOS Information Gathering',
+          details: [
+            'Resolves NetBIOS names to identify computer names',
+            'Enumerates domain/workgroup membership',
+            'Collects system information through NetBIOS queries',
+            'Identifies master browser and domain controller roles'
+          ]
+        }
+      ],
+      limitations: [
+        'Modern Windows systems often restrict anonymous access by default',
+        'Domain-joined computers may have different security policies',
+        'Network segmentation can prevent cross-subnet discovery',
+        'SMB signing and encryption may limit information gathering'
+      ],
+      remediation: [
+        'Disable anonymous access to shares and IPC$',
+        'Remove or restrict administrative shares where not needed',
+        'Enable SMB signing and encryption',
+        'Implement network segmentation to isolate file servers',
+        'Use principle of least privilege for share permissions'
+      ]
+    }
+  },
+  {
+    name: 'Default Web Page / Device Portal Check',
+    checkType: 'WEB_PORTAL_DISCOVERY',
+    description: 'Discovers web admin consoles, default web pages, and device portals that expose login pages or management interfaces without attempting authentication.',
+    riskLevel: 'MEDIUM',
+    requiresAdmin: false,
+    icon: Globe,
+    details: [
+      'Web administration interface discovery',
+      'Default installation page detection',
+      'Device management portal identification',
+      'Login page enumeration',
+      'Technology stack fingerprinting'
+    ],
+    useCases: [
+      'Web application security assessment',
+      'IoT device discovery',
+      'Administrative interface enumeration',
+      'Default credential risk assessment'
+    ],
+    complianceFrameworks: ['NIST CSF', 'CIS Controls'],
+    technicalDetails: {
+      whatItChecks: [
+        'HTTP and HTTPS services on standard (80, 443) and non-standard ports',
+        'Default installation pages (Apache, IIS, nginx welcome pages)',
+        'Administrative interfaces (cPanel, phpMyAdmin, router config)',
+        'Device management portals (printers, cameras, IoT devices)',
+        'Framework and CMS detection (WordPress, Drupal, etc.)'
+      ],
+      howItChecks: [
+        {
+          section: 'Web Service Discovery',
+          details: [
+            'Scans for HTTP services on common and non-standard ports',
+            'Performs HTTP HEAD and GET requests to root paths',
+            'Follows redirects to identify actual landing pages',
+            'Analyzes response headers for server and technology information'
+          ]
+        },
+        {
+          section: 'Default Page Detection',
+          details: [
+            'Matches response content against known default page signatures',
+            'Identifies Apache "It Works!" pages and IIS default installations',
+            'Detects nginx welcome pages and development frameworks',
+            'Recognizes placeholder and "under construction" pages'
+          ]
+        },
+        {
+          section: 'Administrative Interface Identification',
+          details: [
+            'Tests common admin paths (/admin, /login, /config, /management)',
+            'Identifies login forms and authentication mechanisms',
+            'Detects web-based management interfaces',
+            'Recognizes common admin frameworks and tools'
+          ]
+        },
+        {
+          section: 'Technology Fingerprinting',
+          details: [
+            'Analyzes HTTP headers for server and framework versions',
+            'Examines HTML content for CMS and framework indicators',
+            'Detects JavaScript frameworks and libraries',
+            'Identifies database admin tools and development interfaces'
+          ]
+        }
+      ],
+      limitations: [
+        'Limited to HTTP-based interfaces - does not detect non-web admin tools',
+        'May miss custom or non-standard administrative interfaces',
+        'Cannot determine actual security of detected interfaces',
+        'False positives possible with legitimate development/staging sites'
+      ],
+      remediation: [
+        'Remove or secure default installation pages',
+        'Change default administrative paths and implement access controls',
+        'Use strong authentication for all admin interfaces',
+        'Implement network-level restrictions for management interfaces',
+        'Regularly audit and inventory web-accessible administrative tools'
+      ]
+    }
+  },
+  {
+    name: 'Basic Traffic Visibility Test',
+    checkType: 'TRAFFIC_VISIBILITY',
+    description: 'Tests for broadcast/multicast protocol responses that may leak hostname or service information.',
+    riskLevel: 'MEDIUM',
+    requiresAdmin: false,
+    icon: Radio,
+    details: [
+      'LLMNR (Link-Local Multicast Name Resolution) testing',
+      'mDNS (Multicast DNS) service discovery',
+      'NetBIOS broadcast enumeration',
+      'Hostname information leakage',
+      'Service advertisement analysis'
+    ],
+    useCases: [
+      'Information disclosure assessment',
+      'Network reconnaissance evaluation',
+      'Privacy and anonymity testing',
+      'Broadcast protocol security audit'
+    ],
+    complianceFrameworks: ['NIST CSF', 'CIS Controls'],
+    technicalDetails: {
+      whatItChecks: [
+        'LLMNR responses on UDP port 5355 (multicast 224.0.0.252)',
+        'mDNS service advertisements on UDP port 5353 (multicast 224.0.0.251)',
+        'NetBIOS name service broadcasts on UDP port 137',
+        'Hostname resolution through broadcast protocols',
+        'Service discovery information leakage'
+      ],
+      howItChecks: [
+        {
+          section: 'LLMNR Testing',
+          details: [
+            'Sends LLMNR queries for test hostnames to multicast address',
+            'Listens for responses that reveal actual hostnames',
+            'Analyzes response timing and source identification',
+            'Evaluates information disclosure risk level'
+          ]
+        },
+        {
+          section: 'mDNS Service Discovery',
+          details: [
+            'Performs mDNS service enumeration queries',
+            'Discovers advertised services and their details',
+            'Identifies device types and service capabilities',
+            'Analyzes service records for sensitive information'
+          ]
+        },
+        {
+          section: 'NetBIOS Name Service',
+          details: [
+            'Sends NetBIOS name queries and wildcards',
+            'Collects hostname and workgroup information',
+            'Tests for anonymous NetBIOS enumeration',
+            'Evaluates network browsing capabilities'
+          ]
+        },
+        {
+          section: 'Information Leakage Analysis',
+          details: [
+            'Correlates responses across multiple protocols',
+            'Identifies unique device and service fingerprints',
+            'Evaluates privacy implications of broadcast responses',
+            'Assesses potential for network mapping and reconnaissance'
+          ]
+        }
+      ],
+      limitations: [
+        'Testing limited to local network segments',
+        'May not detect all broadcast/multicast protocols',
+        'Network configuration can affect protocol behavior',
+        'Results depend on local network topology and policies'
+      ],
+      remediation: [
+        'Disable LLMNR via Group Policy or registry settings',
+        'Configure DNS properly to reduce LLMNR fallback usage',
+        'Disable NetBIOS over TCP/IP where not required',
+        'Implement network segmentation to limit broadcast domains',
+        'Monitor and control multicast traffic at network boundaries'
+      ]
+    }
+  },
+  {
+    name: 'RDP & Remote Access Exposure',
+    checkType: 'REMOTE_ACCESS_EXPOSURE',
+    description: 'Identifies exposed remote-access services (RDP, VNC, common VPN portals) and detects basic protection signals such as RDP NLA.',
+    riskLevel: 'HIGH',
+    requiresAdmin: false,
+    icon: Monitor,
+    details: [
+      'RDP service exposure detection',
+      'Network Level Authentication (NLA) verification',
+      'VNC service identification',
+      'VPN portal discovery',
+      'Remote access security assessment'
+    ],
+    useCases: [
+      'Remote access security audit',
+      'Lateral movement risk assessment',
+      'VPN and remote work security evaluation',
+      'Attack surface reduction'
+    ],
+    complianceFrameworks: ['NIST CSF', 'CIS Controls', 'SOC 2'],
+    technicalDetails: {
+      whatItChecks: [
+        'RDP services on port 3389 and Network Level Authentication status',
+        'VNC services on port 5900 with protocol identification',
+        'VPN portal detection on HTTPS with certificate analysis',
+        'PPTP VPN service on port 1723 (deprecated protocol)',
+        'Remote access service configurations and security features'
+      ],
+      howItChecks: [
+        {
+          section: 'RDP Security Assessment',
+          details: [
+            'Tests TCP connectivity to port 3389',
+            'Attempts TLS handshake to detect NLA implementation',
+            'Evaluates RDP certificate and encryption settings',
+            'Identifies RDP version and security capabilities'
+          ]
+        },
+        {
+          section: 'VNC Service Detection',
+          details: [
+            'Connects to port 5900 and analyzes RFB protocol handshake',
+            'Identifies VNC server version and capabilities',
+            'Tests for authentication requirements',
+            'Evaluates encryption and security features'
+          ]
+        },
+        {
+          section: 'VPN Portal Discovery',
+          details: [
+            'Analyzes HTTPS certificates for VPN vendor keywords',
+            'Identifies common VPN portal signatures in HTTP responses',
+            'Tests for vendor-specific VPN portal characteristics',
+            'Evaluates SSL/TLS configuration security'
+          ]
+        },
+        {
+          section: 'Legacy Protocol Detection',
+          details: [
+            'Scans for deprecated PPTP VPN service on port 1723',
+            'Identifies other legacy remote access protocols',
+            'Tests for insecure remote access configurations',
+            'Evaluates protocol security and encryption capabilities'
+          ]
+        }
+      ],
+      limitations: [
+        'NLA detection uses heuristic TLS handshake testing',
+        'May not detect all VPN portal types or custom implementations',
+        'Cannot evaluate actual authentication security',
+        'Limited to network-accessible services only'
+      ],
+      remediation: [
+        'Enable Network Level Authentication for RDP',
+        'Place remote access services behind VPN or gateway',
+        'Implement multi-factor authentication for all remote access',
+        'Disable deprecated protocols like PPTP',
+        'Use secure alternatives and restrict access to management VLANs'
+      ]
+    }
+  },
+  {
+    name: 'DNS Hygiene Check',
+    checkType: 'DNS_HYGIENE_CHECK',
+    description: 'Checks internal DNS servers for open recursion, zone transfer (AXFR) exposure, and internal record leakage.',
+    riskLevel: 'HIGH',
+    requiresAdmin: false,
+    icon: Globe,
+    details: [
+      'DNS server security configuration',
+      'Zone transfer vulnerability testing',
+      'Open recursion detection',
+      'Internal DNS record enumeration',
+      'DNS security feature analysis'
+    ],
+    useCases: [
+      'DNS security assessment',
+      'Information disclosure prevention',
+      'Network security configuration audit',
+      'DNS infrastructure hardening'
+    ],
+    complianceFrameworks: ['NIST CSF', 'CIS Controls'],
+    technicalDetails: {
+      whatItChecks: [
+        'DNS servers allowing unauthorized zone transfers (AXFR)',
+        'Open recursive DNS servers accessible from internal networks',
+        'DNS server version information disclosure',
+        'Internal domain and subdomain enumeration',
+        'DNS security extensions (DNSSEC) implementation'
+      ],
+      howItChecks: [
+        {
+          section: 'Zone Transfer Testing',
+          details: [
+            'Identifies authoritative DNS servers for discovered domains',
+            'Attempts AXFR (full zone transfer) requests',
+            'Tests IXFR (incremental zone transfer) capabilities',
+            'Analyzes transferred records for sensitive information'
+          ]
+        },
+        {
+          section: 'Open Recursion Detection',
+          details: [
+            'Tests DNS servers for recursive query acceptance',
+            'Evaluates response to external domain queries',
+            'Identifies DNS servers that can be used for amplification attacks',
+            'Tests for DNS forwarding configurations'
+          ]
+        },
+        {
+          section: 'Information Disclosure',
+          details: [
+            'Queries for DNS server version information',
+            'Enumerates common internal subdomains and services',
+            'Tests for DNS wildcard configurations',
+            'Analyzes DNS responses for infrastructure details'
+          ]
+        },
+        {
+          section: 'Security Configuration Analysis',
+          details: [
+            'Evaluates DNSSEC implementation and validation',
+            'Tests for DNS over HTTPS (DoH) and DNS over TLS (DoT) support',
+            'Analyzes DNS cache poisoning resistance',
+            'Assesses DNS logging and monitoring capabilities'
+          ]
+        }
+      ],
+      limitations: [
+        'Testing limited to accessible DNS servers',
+        'May not detect all internal DNS infrastructure',
+        'Zone transfer testing depends on network access permissions',
+        'Cannot evaluate all DNS security policies'
+      ],
+      remediation: [
+        'Restrict zone transfers to authorized secondary servers only',
+        'Disable recursive queries for external clients',
+        'Hide DNS server version information',
+        'Implement DNS filtering and monitoring',
+        'Enable DNSSEC where appropriate and keep software updated'
+      ]
+    }
+  },
+  {
+    name: 'Printer / IoT Device Enumeration',
+    checkType: 'PRINTER_ENUMERATION',
+    description: 'Identifies unmanaged printers and IoT devices using SNMP (public), HTTP headers/pages, and common device ports (9100, 554, 5000, 80/443).',
+    riskLevel: 'MEDIUM',
+    requiresAdmin: false,
+    icon: Printer,
+    details: [
+      'Network printer discovery',
+      'IoT device identification',
+      'SNMP community string testing',
+      'Device management interface detection',
+      'Firmware version identification'
+    ],
+    useCases: [
+      'IoT security assessment',
+      'Shadow IT device discovery',
+      'Network asset inventory',
+      'Device security posture evaluation'
+    ],
+    complianceFrameworks: ['NIST CSF', 'CIS Controls'],
+    technicalDetails: {
+      whatItChecks: [
+        'Network printers on standard ports (9100 JetDirect, 515 LPD, 631 IPP)',
+        'SNMP-enabled devices with default community strings',
+        'HTTP/HTTPS management interfaces on ports 80, 443, 8080, 8443',
+        'IoT device ports (554 RTSP, 5000 UPnP, 1900 SSDP)',
+        'Device identification through banner grabbing and HTTP headers'
+      ],
+      howItChecks: [
+        {
+          section: 'Printer Service Detection',
+          details: [
+            'Scans for HP JetDirect service on port 9100',
+            'Tests Line Printer Daemon (LPD) on port 515',
+            'Identifies Internet Printing Protocol (IPP) on port 631',
+            'Detects proprietary printer protocols and services'
+          ]
+        },
+        {
+          section: 'SNMP Device Discovery',
+          details: [
+            'Tests SNMP v1/v2c with default community strings (public, private)',
+            'Queries system information OIDs for device identification',
+            'Retrieves device model, firmware version, and network configuration',
+            'Enumerates network interfaces and device capabilities'
+          ]
+        },
+        {
+          section: 'Web Interface Analysis',
+          details: [
+            'Identifies HTTP-based device management interfaces',
+            'Analyzes HTTP headers for device vendor and model information',
+            'Tests for default login pages and authentication mechanisms',
+            'Detects embedded web servers and their security configurations'
+          ]
+        },
+        {
+          section: 'IoT Protocol Detection',
+          details: [
+            'Scans for RTSP video streams on port 554',
+            'Identifies UPnP services and device advertisements',
+            'Tests for insecure IoT protocols and services',
+            'Analyzes device response patterns for fingerprinting'
+          ]
+        }
+      ],
+      limitations: [
+        'Limited to known ports and protocols',
+        'May not detect all IoT device types or custom implementations',
+        'SNMP testing limited to common community strings',
+        'Cannot evaluate actual device security posture'
+      ],
+      remediation: [
+        'Change default SNMP community strings and disable if not needed',
+        'Segment IoT devices into dedicated VLANs',
+        'Update device firmware regularly and disable unnecessary services',
+        'Implement device authentication and monitoring',
+        'Use network access control to manage device connectivity'
+      ]
+    }
+  },
+  {
+    name: 'Unpatched Service Banner Detection',
+    checkType: 'UNPATCHED_BANNER_DETECTION',
+    description: 'Grabs lightweight banners/headers and normalizes version strings (e.g., Apache 2.2.15, OpenSSH_7.2) to flag likely outdated or EOL software.',
+    riskLevel: 'HIGH',
+    requiresAdmin: false,
+    icon: Search,
+    details: [
+      'Service version identification',
+      'End-of-life software detection',
+      'Vulnerability correlation',
+      'Patch level assessment',
+      'Software inventory compilation'
+    ],
+    useCases: [
+      'Vulnerability management',
+      'Patch compliance verification',
+      'Software inventory auditing',
+      'Security risk assessment'
+    ],
+    complianceFrameworks: ['NIST CSF', 'CIS Controls', 'SOC 2'],
+    technicalDetails: {
+      whatItChecks: [
+        'HTTP server banners (Apache, nginx, IIS) with version information',
+        'SSH service banners (OpenSSH, proprietary implementations)',
+        'FTP, SMTP, and other protocol banners with version strings',
+        'Database service version identification (MySQL, PostgreSQL)',
+        'Common service ports for banner grabbing and version extraction'
+      ],
+      howItChecks: [
+        {
+          section: 'Service Banner Collection',
+          details: [
+            'Connects to common service ports (21, 22, 25, 80, 443, etc.)',
+            'Performs protocol-specific handshakes to elicit version information',
+            'Collects HTTP headers including Server and X-Powered-By',
+            'Extracts version strings from initial service responses'
+          ]
+        },
+        {
+          section: 'Version String Normalization',
+          details: [
+            'Parses banner text using regex patterns for common software',
+            'Extracts product names and version numbers',
+            'Normalizes version formats across different software types',
+            'Correlates versions with known release and EOL dates'
+          ]
+        },
+        {
+          section: 'Age Assessment',
+          details: [
+            'Compares detected versions against current releases',
+            'Identifies end-of-life (EOL) software versions',
+            'Flags versions with known critical vulnerabilities',
+            'Assigns risk scores based on age and vulnerability exposure'
+          ]
+        },
+        {
+          section: 'Vulnerability Correlation',
+          details: [
+            'Maps detected versions to CVE databases',
+            'Identifies software with active exploit availability',
+            'Prioritizes findings based on CVSS scores and exploitability',
+            'Provides remediation guidance for detected issues'
+          ]
+        }
+      ],
+      limitations: [
+        'Limited to services that provide version information in banners',
+        'May not detect custom or modified software versions',
+        'Version detection accuracy depends on banner content',
+        'Cannot determine actual patch level or security configuration'
+      ],
+      remediation: [
+        'Update identified software to current supported versions',
+        'Disable version disclosure in service banners where possible',
+        'Implement vulnerability scanning and patch management programs',
+        'Replace end-of-life software with supported alternatives',
+        'Monitor for security advisories affecting detected software'
+      ]
+    }
+  },
+  {
+    name: 'Weak Protocol Detection',
+    checkType: 'WEAK_PROTOCOL_DETECTION',
+    description: 'Detects legacy or unencrypted services (e.g., Telnet/FTP/LDAP), plaintext protocols, and outdated TLS versions accepted by services.',
+    riskLevel: 'HIGH',
+    requiresAdmin: false,
+    icon: Wifi,
+    details: [
+      'Legacy protocol identification',
+      'Unencrypted service detection',
+      'TLS/SSL version assessment',
+      'Cipher suite evaluation',
+      'Protocol security analysis'
+    ],
+    useCases: [
+      'Protocol security assessment',
+      'Encryption compliance verification',
+      'Legacy system identification',
+      'Network security hardening'
+    ],
+    complianceFrameworks: ['NIST CSF', 'CIS Controls', 'SOC 2'],
+    technicalDetails: {
+      whatItChecks: [
+        'Unencrypted protocols (Telnet port 23, FTP port 21, HTTP port 80)',
+        'Legacy authentication protocols (LDAP without StartTLS)',
+        'Outdated SSL/TLS versions (SSLv3, TLS 1.0, TLS 1.1)',
+        'Weak cipher suites and key exchange methods',
+        'Services supporting both encrypted and unencrypted connections'
+      ],
+      howItChecks: [
+        {
+          section: 'Legacy Protocol Detection',
+          details: [
+            'Scans for Telnet, FTP, and other unencrypted services',
+            'Tests for clear-text authentication mechanisms',
+            'Identifies services using deprecated protocols',
+            'Evaluates protocol security features and capabilities'
+          ]
+        },
+        {
+          section: 'TLS/SSL Assessment',
+          details: [
+            'Tests SSL/TLS handshake with various protocol versions',
+            'Identifies supported cipher suites and their strength',
+            'Evaluates certificate validation and chain integrity',
+            'Tests for SSL/TLS vulnerabilities (POODLE, BEAST, etc.)'
+          ]
+        },
+        {
+          section: 'Encryption Analysis',
+          details: [
+            'Assesses encryption strength and key lengths',
+            'Identifies perfect forward secrecy support',
+            'Evaluates certificate algorithms and signatures',
+            'Tests for secure renegotiation and other security features'
+          ]
+        },
+        {
+          section: 'Protocol Migration Assessment',
+          details: [
+            'Identifies services offering both secure and insecure versions',
+            'Tests for automatic upgrade capabilities (HTTP to HTTPS)',
+            'Evaluates migration paths from legacy to secure protocols',
+            'Assesses business impact of protocol deprecation'
+          ]
+        }
+      ],
+      limitations: [
+        'Cannot test all possible protocol combinations',
+        'May not detect custom or proprietary weak protocols',
+        'Testing limited to network-accessible services',
+        'Cannot evaluate actual data transmission security'
+      ],
+      remediation: [
+        'Disable or replace insecure protocols with encrypted alternatives',
+        'Enforce minimum TLS version requirements (TLS 1.2 or higher)',
+        'Configure strong cipher suites and disable weak algorithms',
+        'Implement protocol migration strategies for legacy systems',
+        'Monitor and audit protocol usage across the network'
+      ]
+    }
   }
 ];
 
 const environmentRecommendations = {
   'Cloud Environments': {
-    modules: ['Data Exposure Check', 'Excessive Sharing & Collaboration Risks', 'Misconfiguration Discovery', 'Phishing Exposure Indicators'],
-    rationale: 'Cloud environments require focus on data protection, sharing controls, and configuration management.'
+    modules: ['Data Exposure Check', 'Excessive Sharing & Collaboration Risks', 'Misconfiguration Discovery', 'Phishing Exposure Indicators', 'Weak Protocol Detection', 'DNS Hygiene Check'],
+    rationale: 'Cloud environments require focus on data protection, sharing controls, configuration management, and secure network protocols.'
   },
   'Network Infrastructure': {
-    modules: ['Open Service/Port Identification', 'Misconfiguration Discovery', 'Patch & Update Status', 'Elevated Permissions Report'],
-    rationale: 'Network infrastructure assessments prioritize attack surface reduction and privilege management.'
+    modules: ['Port & Service Discovery', 'Operating System Fingerprinting', 'DNS Hygiene Check', 'Unpatched Service Banner Detection', 'Weak Protocol Detection', 'RDP & Remote Access Exposure', 'Misconfiguration Discovery'],
+    rationale: 'Network infrastructure assessments prioritize attack surface reduction, service hardening, and comprehensive network security analysis.'
   },
   'On-Premises Infrastructure': {
-    modules: ['Patch & Update Status', 'Weak Password Detection', 'Password Policy Weakness', 'Elevated Permissions Report', 'Misconfiguration Discovery'],
-    rationale: 'On-premises environments benefit from comprehensive identity and system hardening assessments.'
+    modules: ['Patch & Update Status', 'Weak Password Detection', 'Password Policy Weakness', 'Elevated Permissions Report', 'Misconfiguration Discovery', 'Shared Folder / SMB Discovery', 'Port & Service Discovery', 'Printer / IoT Device Enumeration'],
+    rationale: 'On-premises environments benefit from comprehensive identity and system hardening assessments plus network-based discovery of internal assets and services.'
   },
   'End-User Workstations': {
-    modules: ['Phishing Exposure Indicators', 'User Behavior Risk Signals', 'Patch & Update Status', 'Data Exposure Check'],
-    rationale: 'Workstation assessments focus on user-related risks and endpoint protection.'
+    modules: ['Phishing Exposure Indicators', 'User Behavior Risk Signals', 'Patch & Update Status', 'Data Exposure Check', 'Basic Traffic Visibility Test'],
+    rationale: 'Workstation assessments focus on user-related risks, endpoint protection, and information disclosure through network protocols.'
+  },
+  'IoT and Device Networks': {
+    modules: ['Printer / IoT Device Enumeration', 'Default Web Page / Device Portal Check', 'Weak Protocol Detection', 'Port & Service Discovery', 'Basic Traffic Visibility Test'],
+    rationale: 'IoT environments require specialized discovery techniques and security assessment of device management interfaces and protocols.'
   }
 };
 
 const complianceMapping = {
   'SOC 2 Type II': {
-    modules: ['Misconfiguration Discovery', 'Weak Password Detection', 'Data Exposure Check', 'Elevated Permissions Report', 'Password Policy Weakness'],
-    controls: ['CC6.1', 'CC6.2', 'CC6.3', 'CC6.6', 'CC6.7']
+    modules: ['Misconfiguration Discovery', 'Weak Password Detection', 'Data Exposure Check', 'Elevated Permissions Report', 'Password Policy Weakness', 'RDP & Remote Access Exposure', 'Shared Folder / SMB Discovery', 'Weak Protocol Detection'],
+    controls: ['CC6.1', 'CC6.2', 'CC6.3', 'CC6.6', 'CC6.7', 'CC6.8']
   },
   'NIST Cybersecurity Framework': {
-    modules: ['Patch & Update Status', 'Misconfiguration Discovery', 'Data Exposure Check', 'Open Service/Port Identification', 'Phishing Exposure Indicators'],
-    controls: ['ID.RA', 'PR.IP', 'PR.DS', 'ID.AM', 'PR.AC', 'PR.AT', 'DE.CM']
+    modules: ['Patch & Update Status', 'Misconfiguration Discovery', 'Data Exposure Check', 'Port & Service Discovery', 'Phishing Exposure Indicators', 'Operating System Fingerprinting', 'DNS Hygiene Check', 'Unpatched Service Banner Detection', 'Weak Protocol Detection'],
+    controls: ['ID.RA', 'PR.IP', 'PR.DS', 'ID.AM', 'PR.AC', 'PR.AT', 'DE.CM', 'ID.RA-1', 'ID.AM-1', 'ID.AM-2']
   },
   'CIS Controls v8': {
-    modules: ['Patch & Update Status', 'Elevated Permissions Report', 'Misconfiguration Discovery', 'Data Exposure Check', 'Password Policy Weakness'],
-    controls: ['Control 3', 'Control 4', 'Control 6', 'Control 7']
+    modules: ['Patch & Update Status', 'Elevated Permissions Report', 'Misconfiguration Discovery', 'Data Exposure Check', 'Password Policy Weakness', 'Port & Service Discovery', 'Operating System Fingerprinting', 'Printer / IoT Device Enumeration', 'Weak Protocol Detection'],
+    controls: ['Control 1', 'Control 2', 'Control 3', 'Control 4', 'Control 6', 'Control 7', 'Control 11', 'Control 12']
   },
   'GDPR/CCPA Data Protection': {
-    modules: ['Data Exposure Check', 'Excessive Sharing & Collaboration Risks', 'Elevated Permissions Report', 'Misconfiguration Discovery'],
-    controls: ['Article 25', 'Article 32', 'CCPA 1798.100']
+    modules: ['Data Exposure Check', 'Excessive Sharing & Collaboration Risks', 'Elevated Permissions Report', 'Misconfiguration Discovery', 'Shared Folder / SMB Discovery', 'Basic Traffic Visibility Test'],
+    controls: ['Article 25', 'Article 32', 'CCPA 1798.100', 'CCPA 1798.150']
+  },
+  'ISO 27001:2022': {
+    modules: ['Port & Service Discovery', 'Operating System Fingerprinting', 'DNS Hygiene Check', 'Unpatched Service Banner Detection', 'RDP & Remote Access Exposure', 'Weak Protocol Detection', 'Misconfiguration Discovery', 'Data Exposure Check'],
+    controls: ['A.8.9', 'A.8.10', 'A.12.6', 'A.13.1', 'A.14.1', 'A.18.1']
   }
 };
 
 const testingFrequency = {
-  'Critical Risk (Weekly)': ['Patch & Update Status', 'Weak Password Detection', 'Data Exposure Check'],
-  'High Risk (Bi-weekly)': ['Misconfiguration Discovery', 'Elevated Permissions Report', 'Password Policy Weakness', 'Phishing Exposure Indicators'],
-  'Medium Risk (Monthly)': ['Open Service/Port Identification', 'Excessive Sharing & Collaboration Risks', 'User Behavior Risk Signals']
+  'Critical Risk (Weekly)': ['Patch & Update Status', 'Weak Password Detection', 'Data Exposure Check', 'RDP & Remote Access Exposure', 'DNS Hygiene Check', 'Unpatched Service Banner Detection'],
+  'High Risk (Bi-weekly)': ['Misconfiguration Discovery', 'Elevated Permissions Report', 'Password Policy Weakness', 'Phishing Exposure Indicators', 'Shared Folder / SMB Discovery', 'Weak Protocol Detection'],
+  'Medium Risk (Monthly)': ['Port & Service Discovery', 'Excessive Sharing & Collaboration Risks', 'User Behavior Risk Signals', 'Operating System Fingerprinting', 'Default Web Page / Device Portal Check', 'Printer / IoT Device Enumeration', 'Basic Traffic Visibility Test']
 };
 
 export default function DocumentationPage() {
