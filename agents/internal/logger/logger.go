@@ -11,6 +11,7 @@ import (
 // Logger provides structured logging for the agent
 type Logger struct {
 	verbose bool
+	silent  bool
 }
 
 // LogLevel represents logging levels
@@ -35,6 +36,15 @@ type LogEntry struct {
 func NewLogger(verbose bool) *Logger {
 	return &Logger{
 		verbose: verbose,
+		silent:  false,
+	}
+}
+
+// NewSilentLogger creates a logger that discards all output
+func NewSilentLogger() *Logger {
+	return &Logger{
+		verbose: false,
+		silent:  true,
 	}
 }
 
@@ -68,6 +78,11 @@ func (l *Logger) Fatal(message string, fields ...map[string]interface{}) {
 
 // log handles the actual logging
 func (l *Logger) log(level LogLevel, message string, fields ...map[string]interface{}) {
+	// Skip all output if in silent mode
+	if l.silent {
+		return
+	}
+
 	entry := LogEntry{
 		Timestamp: time.Now(),
 		Level:     level,

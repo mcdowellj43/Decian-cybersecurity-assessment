@@ -385,10 +385,26 @@ export const deleteAssessment = catchAsync(async (req: Request, res: Response, n
 
 /**
  * Get assessment statistics for the organization
- * GET /api/assessments/stats
+ * GET /api/assessments/stats?organizationId=<optional>
  */
 export const getAssessmentStats = catchAsync(async (req: Request, res: Response) => {
-  const organizationId = req.user!.organizationId;
+  const { organizationId: requestedOrgId } = req.query;
+  const userOrgId = req.user!.organizationId;
+  const userRole = req.user!.role;
+
+  // Allow organization ID parameter for admins, otherwise use user's organization
+  let organizationId = userOrgId;
+  if (requestedOrgId && typeof requestedOrgId === 'string') {
+    // Only admins can query other organizations
+    if (userRole === 'ADMIN') {
+      organizationId = requestedOrgId;
+    } else if (requestedOrgId !== userOrgId) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Insufficient permissions to access other organization data',
+      });
+    }
+  }
 
   // Get status distribution
   const statusStats = await prisma.assessment.groupBy({

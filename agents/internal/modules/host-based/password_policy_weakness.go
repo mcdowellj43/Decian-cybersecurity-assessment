@@ -1,7 +1,8 @@
-package modules
+package hostbased
 
 import (
 	"decian-agent/internal/logger"
+	"decian-agent/internal/modules"
 	"fmt"
 	"runtime"
 	"strings"
@@ -13,25 +14,46 @@ import (
 // PasswordPolicyWeaknessModule implements password policy weakness assessment
 type PasswordPolicyWeaknessModule struct {
 	logger *logger.Logger
+	modules.TargetAware
 }
 
 // NewPasswordPolicyWeaknessModule creates a new password policy weakness module
-func NewPasswordPolicyWeaknessModule(logger *logger.Logger) Module {
+// This constructor is used by both the legacy system and the new plugin system
+func NewPasswordPolicyWeaknessModule(logger *logger.Logger) modules.Module {
 	return &PasswordPolicyWeaknessModule{
 		logger: logger,
 	}
 }
 
-// Info returns information about the module
-func (m *PasswordPolicyWeaknessModule) Info() ModuleInfo {
-	return ModuleInfo{
+// NewPasswordPolicyWeaknessModulePlugin creates a new instance for the plugin system
+// This follows the plugin constructor pattern for auto-discovery
+func NewPasswordPolicyWeaknessModulePlugin(logger *logger.Logger) modules.ModulePlugin {
+	return &PasswordPolicyWeaknessModule{
+		logger: logger,
+	}
+}
+
+// init registers this module for auto-discovery
+func init() {
+	modules.RegisterPluginConstructor(modules.CheckTypePasswordPolicyWeakness, NewPasswordPolicyWeaknessModulePlugin)
+}
+
+// GetInfo returns information about the module (modules.ModulePlugin interface)
+func (m *PasswordPolicyWeaknessModule) GetInfo() modules.ModuleInfo {
+	return modules.ModuleInfo{
 		Name:             "Password Policy Weakness",
 		Description:      "Analyze domain and local password policies for compliance with security best practices",
-		CheckType:        CheckTypePasswordPolicyWeakness,
+		CheckType:        modules.CheckTypePasswordPolicyWeakness,
 		Platform:         "windows",
-		DefaultRiskLevel: RiskLevelHigh,
+		DefaultRiskLevel: modules.RiskLevelHigh,
 		RequiresAdmin:    true,
+		Category:         modules.CategoryHostBased,
 	}
+}
+
+// Info returns information about the module (legacy modules.Module interface)
+func (m *PasswordPolicyWeaknessModule) Info() modules.ModuleInfo {
+	return m.GetInfo()
 }
 
 // Validate checks if the module can run in the current environment
@@ -43,11 +65,11 @@ func (m *PasswordPolicyWeaknessModule) Validate() error {
 }
 
 // Execute runs the password policy weakness assessment
-func (m *PasswordPolicyWeaknessModule) Execute() (*AssessmentResult, error) {
+func (m *PasswordPolicyWeaknessModule) Execute() (*modules.AssessmentResult, error) {
 	m.logger.Info("Starting password policy weakness assessment")
 
-	result := &AssessmentResult{
-		CheckType: CheckTypePasswordPolicyWeakness,
+	result := &modules.AssessmentResult{
+		CheckType: modules.CheckTypePasswordPolicyWeakness,
 		Data:      make(map[string]interface{}),
 		Timestamp: time.Now(),
 	}
@@ -113,7 +135,7 @@ func (m *PasswordPolicyWeaknessModule) Execute() (*AssessmentResult, error) {
 	result.Data["findings"] = findings
 	result.Data["total_issues"] = len(findings)
 	result.RiskScore = riskScore
-	result.RiskLevel = DetermineRiskLevel(riskScore)
+	result.RiskLevel = modules.DetermineRiskLevel(riskScore)
 
 	m.logger.Info("Password policy weakness assessment completed", map[string]interface{}{
 		"findings_count": len(findings),

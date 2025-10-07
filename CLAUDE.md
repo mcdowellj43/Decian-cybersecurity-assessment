@@ -1,5 +1,25 @@
 # CLAUDE.md - Cybersecurity Risk Assessment Platform
 
+## CURRENT IMPLEMENTATION PHASE: NETWORK BASED ASSESSMENT MODULES
+## IMPORTANT ##
+  - as you are going through the feature implementation, reference network-agent-modules.md for what to put in the modules for design, and reference DYNAMIC_MODULE_GUIDE.md for how to build the module so that it fits correctly within the current dynamic module implementation scheme
+
+
+**PHASE 1 STATUS**: ✅ COMPLETED - Core plugin architecture implemented
+- Plugin interfaces defined in `agents/internal/modules/types.go`
+- PluginManager system created in `agents/internal/modules/plugin_manager.go`
+- Module template and development guide created in `agents/internal/modules/`
+
+**ADDITIONAL DEVELOPMENT RESOURCES**:
+- **Module Development Guide**: `agents/internal/modules/MODULE_DEVELOPMENT_GUIDE.md` - Complete step-by-step guide for creating new modules
+- **Module Template**: `agents/internal/modules/template_module.go` - Copy-paste template for new modules
+- **Plugin Architecture**: All new modules must implement the `ModulePlugin` interface for auto-discovery
+
+# Starting and Stopping the services
+# The frontend always runs on port 3000, the backend, on 3001, and prisma DB on 5557
+# To start the services, run the ./start-services.sh script
+# To stop the services, run the ./delete-services.sh script
+
 ## PROJECT OVERVIEW
 
 This is a comprehensive cybersecurity risk assessment platform consisting of a centralized web dashboard and distributed Go-based agents. The platform performs automated security assessments across Windows environments and provides executive-level reporting with actionable insights.

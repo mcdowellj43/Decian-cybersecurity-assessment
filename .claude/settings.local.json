@@ -50,14 +50,15 @@
       "Bash(./test-agent.exe run --verbose)",
       "Bash(npx prisma:*)",
       "Bash(sqlite3:*)",
-      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"yes you can proceed\" npx prisma migrate reset --force)",
-      "Bash(./workflow-test-agent.exe setup --server \"http://localhost:3001\" --org-id \"cmfye680q0000u3cwjw101lyh\" --enroll-token \"fa8957e97656a9a2c19dcfe72d41521f\" --verbose)",
-      "Bash(./workflow-test-agent.exe status:*)",
-      "Bash(./workflow-test-agent.exe run --verbose)",
-      "Bash(PRISMA_STUDIO_PORT=5557 npx prisma studio)",
-      "Bash(./test-build.exe --help)",
-      "Bash(agents/dist/decian-agent-cmfyvcr58000ju3ook4uxuzfr.exe --help)",
-      "Bash(\"/c/Users/mcdow/Downloads/decian-agent-downloaded.exe\" --help)"
+      "Bash(./decian-agent-new.exe run --verbose)",
+      "Bash(./decian-agent-fixed.exe run --verbose)",
+      "WebFetch(domain:github.com)",
+      "Bash(./test-agent.exe run --list-modules)",
+      "Bash(ping:*)",
+      "Bash(rg:*)",
+      "Bash(./start-services.sh:*)",
+      "Bash(echo $APPDATA)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

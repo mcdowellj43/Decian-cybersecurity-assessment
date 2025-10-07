@@ -40,6 +40,16 @@ export interface HeartbeatRequest {
   metadata?: Record<string, any>;
 }
 
+export interface AgentModule {
+  name: string;
+  description: string;
+  checkType: string;
+  platform: string;
+  defaultRiskLevel: string;
+  requiresAdmin: boolean;
+  category: string; // "host-based" or "network-based"
+}
+
 export interface GetAgentsParams {
   status?: string;
   limit?: number;
@@ -138,6 +148,32 @@ export const agentApi = {
     try {
       const response = await apiClient.get('/agents/stats');
       return handleApiResponse(response);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  /**
+   * Get available modules from a specific agent
+   */
+  getAgentModules: async (agentId: string): Promise<{
+    modules: AgentModule[];
+    count: number;
+  }> => {
+    try {
+      // Add cache-busting parameter to ensure fresh data
+      const timestamp = Date.now();
+      const response = await apiClient.get(`/agents/${agentId}/modules?t=${timestamp}`);
+
+      // Handle the response structure directly since count is at the root level
+      if (response.data.status === 'success') {
+        return {
+          modules: response.data.data,
+          count: response.data.count,
+        };
+      } else {
+        throw new Error(response.data.message || 'Failed to fetch modules');
+      }
     } catch (error) {
       throw handleApiError(error);
     }

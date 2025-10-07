@@ -6,6 +6,8 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAssessments } from '@/hooks/useAssessments';
 import { useAgents } from '@/hooks/useAgents';
 import { reportApi } from '@/services/reportApi';
+import { CheckType } from '@/services/assessmentApi';
+import { agentApi, AgentModule } from '@/services/agentApi';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -278,22 +280,137 @@ function CreateAssessmentModal({
   isOpen: boolean;
   onClose: () => void;
   agents: any[];
-  onCreateAssessment: (agentId: string) => void;
+  onCreateAssessment: (agentId: string, scanType: 'host' | 'subnet', subnet?: string, selectedModules?: string[]) => void;
 }) {
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [isCreating, setIsCreating] = useState(false);
+  const [scanType, setScanType] = useState<'host' | 'subnet'>('host');
+  const [subnet, setSubnet] = useState<string>('');
+  const [availableModules, setAvailableModules] = useState<AgentModule[]>([]);
+  const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  const [loadingModules, setLoadingModules] = useState(false);
+
+  // Fetch modules when agent is selected
+  useEffect(() => {
+    const fetchModules = async () => {
+      if (!selectedAgentId) {
+        setAvailableModules([]);
+        setSelectedModules([]);
+        return;
+      }
+
+      setLoadingModules(true);
+      try {
+        const result = await agentApi.getAgentModules(selectedAgentId);
+        console.log('Agent modules result:', result); // Debug logging
+
+        // Defensive check for result and modules
+        if (result && result.modules && Array.isArray(result.modules)) {
+          setAvailableModules(result.modules);
+          // Pre-select all modules by default
+          setSelectedModules(result.modules.map(module => module.checkType));
+        } else {
+          console.warn('Invalid modules result structure:', result);
+          setAvailableModules([]);
+          setSelectedModules([]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch agent modules:', error);
+        setAvailableModules([]);
+        setSelectedModules([]);
+      } finally {
+        setLoadingModules(false);
+      }
+    };
+
+    fetchModules();
+  }, [selectedAgentId]);
 
   if (!isOpen) return null;
+
+  // CIDR validation function
+  const isValidCIDR = (cidr: string): boolean => {
+    const cidrRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(?:[0-9]|[1-2][0-9]|3[0-2])$/;
+    return cidrRegex.test(cidr);
+  };
+
+  // Module selection handlers
+  const handleModuleToggle = (moduleCheckType: string) => {
+    setSelectedModules(prev =>
+      prev.includes(moduleCheckType)
+        ? prev.filter(m => m !== moduleCheckType)
+        : [...prev, moduleCheckType]
+    );
+  };
+
+  const handleSelectAllModules = () => {
+    setSelectedModules(availableModules.map(module => module.checkType));
+  };
+
+  const handleDeselectAllModules = () => {
+    setSelectedModules([]);
+  };
+
+  const handleSelectHostBasedModules = () => {
+    const hostBasedModules = availableModules
+      .filter(module => module.category === 'host-based')
+      .map(module => module.checkType);
+    setSelectedModules(prev => {
+      const nonHostBased = prev.filter(moduleType =>
+        !hostBasedModules.includes(moduleType)
+      );
+      return [...nonHostBased, ...hostBasedModules];
+    });
+  };
+
+  const handleSelectNetworkBasedModules = () => {
+    const networkBasedModules = availableModules
+      .filter(module => module.category === 'network-based')
+      .map(module => module.checkType);
+    setSelectedModules(prev => {
+      const nonNetworkBased = prev.filter(moduleType =>
+        !networkBasedModules.includes(moduleType)
+      );
+      return [...nonNetworkBased, ...networkBasedModules];
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAgentId) return;
 
+    // Validate subnet if subnet scan is selected
+    if (scanType === 'subnet') {
+      if (!subnet.trim()) {
+        alert('Please enter a subnet CIDR (e.g., 192.168.1.0/24)');
+        return;
+      }
+      if (!isValidCIDR(subnet.trim())) {
+        alert('Please enter a valid CIDR format (e.g., 192.168.1.0/24)');
+        return;
+      }
+    }
+
+    // Validate module selection
+    if (selectedModules.length === 0) {
+      alert('Please select at least one assessment module');
+      return;
+    }
+
     setIsCreating(true);
     try {
-      await onCreateAssessment(selectedAgentId);
+      await onCreateAssessment(
+        selectedAgentId,
+        scanType,
+        scanType === 'subnet' ? subnet.trim() : undefined,
+        selectedModules
+      );
       onClose();
       setSelectedAgentId('');
+      setScanType('host');
+      setSubnet('');
+      setAvailableModules([]);
+      setSelectedModules([]);
     } catch (error) {
       console.error('Failed to create assessment:', error);
     } finally {
@@ -302,9 +419,9 @@ function CreateAssessmentModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full">
-        <div className="p-6 border-b border-gray-200">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-6 z-50">
+      <div className="bg-white rounded-lg max-w-7xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="p-6 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-900">Run Security Assessment</h2>
             <button
@@ -316,72 +433,235 @@ function CreateAssessmentModal({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Agent
-            </label>
-            {agents.length === 0 ? (
-              <div className="text-center py-8">
-                <Server className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-600 text-sm">No agents available</p>
-                <p className="text-gray-500 text-xs">Deploy an agent first to run assessments</p>
-              </div>
-            ) : (
-              <select
-                value={selectedAgentId}
-                onChange={(e) => setSelectedAgentId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                <option value="">Choose an agent...</option>
-                {agents.map((agent) => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.hostname} ({agent.status})
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+        <form onSubmit={handleSubmit} className="flex flex-1 min-h-0">
+          {/* Left Column - Agent and Scan Options */}
+          <div className="w-1/2 border-r border-gray-200 flex flex-col">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Agent
+              </label>
+              {agents.length === 0 ? (
+                <div className="text-center py-8">
+                  <Server className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-600 text-sm">No agents available</p>
+                  <p className="text-gray-500 text-xs">Deploy an agent first to run assessments</p>
+                </div>
+              ) : (
+                <select
+                  value={selectedAgentId}
+                  onChange={(e) => setSelectedAgentId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Choose an agent...</option>
+                  {agents.map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.hostname} ({agent.status})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-medium text-blue-900 mb-2">Assessment Modules</h4>
-            <div className="text-sm text-blue-800 space-y-1">
-              <div>• Misconfiguration Discovery</div>
-              <div>• Weak Password Detection</div>
-              <div>• Data Exposure Check</div>
-              <div>• Phishing Exposure Indicators</div>
-              <div>• Patch & Update Status</div>
-              <div>• Elevated Permissions Report</div>
-              <div>• Excessive Sharing Risks</div>
-              <div>• Password Policy Weakness</div>
-              <div>• Open Service/Port Identification</div>
-              <div>• User Behavior Risk Signals</div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Scan Type
+              </label>
+              <div className="space-y-3">
+                <label className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input
+                    type="radio"
+                    name="scanType"
+                    value="host"
+                    checked={scanType === 'host'}
+                    onChange={(e) => setScanType(e.target.value as 'host' | 'subnet')}
+                    className="mt-1"
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">Single Device Scan</div>
+                    <div className="text-xs text-gray-600">
+                      Scan only the device where the agent is running
+                    </div>
+                  </div>
+                </label>
+                <label className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input
+                    type="radio"
+                    name="scanType"
+                    value="subnet"
+                    checked={scanType === 'subnet'}
+                    onChange={(e) => setScanType(e.target.value as 'host' | 'subnet')}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-gray-900">Subnet Scan</div>
+                    <div className="text-xs text-gray-600 mb-2">
+                      Scan multiple devices across a network subnet
+                    </div>
+                    {scanType === 'subnet' && (
+                      <div>
+                        <input
+                          type="text"
+                          value={subnet}
+                          onChange={(e) => setSubnet(e.target.value)}
+                          placeholder="e.g., 192.168.1.0/24"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required={scanType === 'subnet'}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Enter CIDR notation (up to /24 supported)
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Module Legend */}
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+              <h4 className="text-sm font-medium text-gray-900 mb-2">Module Types</h4>
+              <div className="text-xs text-gray-700 space-y-1">
+                <div className="flex items-center space-x-2">
+                  <span className="inline-block w-3 h-3 bg-blue-100 border border-blue-300 rounded"></span>
+                  <span><strong>Host-Based:</strong> More intrusive, runs on the device</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="inline-block w-3 h-3 bg-purple-100 border border-purple-300 rounded"></span>
+                  <span><strong>Network-Based:</strong> Less intrusive, scans over network</span>
+                </div>
+              </div>
+            </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex space-x-3 p-6 border-t border-gray-200 flex-shrink-0">
+              <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                className="flex-1"
+                disabled={!selectedAgentId || isCreating || agents.length === 0 || selectedModules.length === 0}
+              >
+                {isCreating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Run Assessment
+                  </>
+                )}
+              </Button>
             </div>
           </div>
 
-          <div className="flex space-x-3 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              className="flex-1"
-              disabled={!selectedAgentId || isCreating || agents.length === 0}
-            >
-              {isCreating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Starting...
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 mr-2" />
-                  Run Assessment
-                </>
+          {/* Right Column - Module Selection */}
+          <div className="w-1/2 flex flex-col">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium text-gray-900">Assessment Modules</h4>
+                {availableModules.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllModules}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSelectHostBasedModules}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      Host-Based
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSelectNetworkBasedModules}
+                      className="text-xs text-purple-600 hover:text-purple-800"
+                    >
+                      Network-Based
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeselectAllModules}
+                      className="text-xs text-gray-600 hover:text-gray-800"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                )}
+              </div>
+              {selectedModules.length > 0 && (
+                <p className="text-xs text-gray-600 mt-1">
+                  Selected: {selectedModules.length} of {availableModules.length} modules
+                </p>
               )}
-            </Button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {!selectedAgentId ? (
+                <div className="text-center py-12">
+                  <Server className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-sm text-gray-600">Select an agent to view available modules</p>
+                </div>
+              ) : loadingModules ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                  <span className="ml-2 text-sm text-gray-600">Loading modules...</span>
+                </div>
+              ) : availableModules.length > 0 ? (
+                <div className="space-y-3">
+                  {availableModules.map((module) => (
+                    <label key={module.checkType} className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={selectedModules.includes(module.checkType)}
+                        onChange={() => handleModuleToggle(module.checkType)}
+                        className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900">{module.name}</div>
+                        <div className="text-xs text-gray-600 mt-1">{module.description}</div>
+                        <div className="flex items-center space-x-2 mt-2">
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            module.category === 'host-based' ? 'bg-blue-100 text-blue-800' :
+                            module.category === 'network-based' ? 'bg-purple-100 text-purple-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {module.category === 'host-based' ? 'Host-Based' :
+                             module.category === 'network-based' ? 'Network-Based' :
+                             'Unknown'}
+                          </span>
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            module.defaultRiskLevel === 'HIGH' ? 'bg-red-100 text-red-800' :
+                            module.defaultRiskLevel === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {module.defaultRiskLevel}
+                          </span>
+                          {module.requiresAdmin && (
+                            <span className="text-xs text-orange-600 font-medium">Admin Required</span>
+                          )}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-sm text-gray-600">No modules available</p>
+                  <p className="text-xs text-gray-500">This agent may not be properly configured</p>
+                </div>
+              )}
+            </div>
           </div>
         </form>
       </div>
@@ -398,23 +678,18 @@ export default function AssessmentsPage() {
     setShowCreateModal(true);
   };
 
-  const handleCreateAssessment = async (agentId: string) => {
+  const handleCreateAssessment = async (agentId: string, scanType: 'host' | 'subnet', subnet?: string, selectedModules?: string[]) => {
     try {
-      await createAssessment({
+      const assessmentData = {
         agentId,
-        modules: [
-          'MISCONFIGURATION_DISCOVERY',
-          'WEAK_PASSWORD_DETECTION',
-          'DATA_EXPOSURE_CHECK',
-          'PHISHING_EXPOSURE_INDICATORS',
-          'PATCH_UPDATE_STATUS',
-          'ELEVATED_PERMISSIONS_REPORT',
-          'EXCESSIVE_SHARING_RISKS',
-          'PASSWORD_POLICY_WEAKNESS',
-          'OPEN_SERVICE_PORT_ID',
-          'USER_BEHAVIOR_RISK_SIGNALS'
-        ]
-      });
+        modules: (selectedModules || []) as CheckType[],
+        metadata: {
+          scanType,
+          ...(scanType === 'subnet' && subnet ? { subnet } : {})
+        }
+      };
+
+      await createAssessment(assessmentData);
     } catch (error) {
       throw error;
     }

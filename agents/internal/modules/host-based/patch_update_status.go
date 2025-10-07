@@ -1,7 +1,8 @@
-package modules
+package hostbased
 
 import (
 	"decian-agent/internal/logger"
+	"decian-agent/internal/modules"
 	"fmt"
 	"runtime"
 	"strings"
@@ -13,25 +14,46 @@ import (
 // PatchUpdateStatusModule implements patch and update status assessment
 type PatchUpdateStatusModule struct {
 	logger *logger.Logger
+	modules.TargetAware
 }
 
 // NewPatchUpdateStatusModule creates a new patch update status module
-func NewPatchUpdateStatusModule(logger *logger.Logger) Module {
+// This constructor is used by both the legacy system and the new plugin system
+func NewPatchUpdateStatusModule(logger *logger.Logger) modules.Module {
 	return &PatchUpdateStatusModule{
 		logger: logger,
 	}
 }
 
-// Info returns information about the module
-func (m *PatchUpdateStatusModule) Info() ModuleInfo {
-	return ModuleInfo{
+// NewPatchUpdateStatusModulePlugin creates a new instance for the plugin system
+// This follows the plugin constructor pattern for auto-discovery
+func NewPatchUpdateStatusModulePlugin(logger *logger.Logger) modules.ModulePlugin {
+	return &PatchUpdateStatusModule{
+		logger: logger,
+	}
+}
+
+// init registers this module for auto-discovery
+func init() {
+	modules.RegisterPluginConstructor(modules.CheckTypePatchUpdateStatus, NewPatchUpdateStatusModulePlugin)
+}
+
+// GetInfo returns information about the module (modules.ModulePlugin interface)
+func (m *PatchUpdateStatusModule) GetInfo() modules.ModuleInfo {
+	return modules.ModuleInfo{
 		Name:             "Patch & Update Status",
 		Description:      "Evaluate Windows Update configuration, missing patches, and third-party software update status",
-		CheckType:        CheckTypePatchUpdateStatus,
+		CheckType:        modules.CheckTypePatchUpdateStatus,
 		Platform:         "windows",
-		DefaultRiskLevel: RiskLevelHigh,
+		DefaultRiskLevel: modules.RiskLevelHigh,
 		RequiresAdmin:    true,
+		Category:         modules.CategoryHostBased,
 	}
+}
+
+// Info returns information about the module (legacy modules.Module interface)
+func (m *PatchUpdateStatusModule) Info() modules.ModuleInfo {
+	return m.GetInfo()
 }
 
 // Validate checks if the module can run in the current environment
@@ -43,11 +65,11 @@ func (m *PatchUpdateStatusModule) Validate() error {
 }
 
 // Execute runs the patch update status assessment
-func (m *PatchUpdateStatusModule) Execute() (*AssessmentResult, error) {
+func (m *PatchUpdateStatusModule) Execute() (*modules.AssessmentResult, error) {
 	m.logger.Info("Starting patch update status assessment")
 
-	result := &AssessmentResult{
-		CheckType: CheckTypePatchUpdateStatus,
+	result := &modules.AssessmentResult{
+		CheckType: modules.CheckTypePatchUpdateStatus,
 		Data:      make(map[string]interface{}),
 		Timestamp: time.Now(),
 	}
@@ -113,7 +135,7 @@ func (m *PatchUpdateStatusModule) Execute() (*AssessmentResult, error) {
 	result.Data["findings"] = findings
 	result.Data["total_issues"] = len(findings)
 	result.RiskScore = riskScore
-	result.RiskLevel = DetermineRiskLevel(riskScore)
+	result.RiskLevel = modules.DetermineRiskLevel(riskScore)
 
 	m.logger.Info("Patch update status assessment completed", map[string]interface{}{
 		"findings_count": len(findings),
@@ -263,14 +285,14 @@ func (m *PatchUpdateStatusModule) checkThirdPartySoftwareUpdates() ([]string, fl
 
 	// Common software to check for updates
 	_ = map[string]string{
-		"Adobe Flash Player":     `SOFTWARE\\Macromedia\\FlashPlayer`,
-		"Java":                   `SOFTWARE\\JavaSoft\\Java Runtime Environment`,
-		"Adobe Reader":           `SOFTWARE\\Adobe\\Acrobat Reader`,
-		"Google Chrome":          `SOFTWARE\\Google\\Chrome\\BLBeacon`,
-		"Mozilla Firefox":        `SOFTWARE\\Mozilla\\Mozilla Firefox`,
-		"VLC Media Player":       `SOFTWARE\\VideoLAN\\VLC`,
-		"WinRAR":                 `SOFTWARE\\WinRAR`,
-		"7-Zip":                  `SOFTWARE\\7-Zip`,
+		"Adobe Flash Player": `SOFTWARE\\Macromedia\\FlashPlayer`,
+		"Java":               `SOFTWARE\\JavaSoft\\Java Runtime Environment`,
+		"Adobe Reader":       `SOFTWARE\\Adobe\\Acrobat Reader`,
+		"Google Chrome":      `SOFTWARE\\Google\\Chrome\\BLBeacon`,
+		"Mozilla Firefox":    `SOFTWARE\\Mozilla\\Mozilla Firefox`,
+		"VLC Media Player":   `SOFTWARE\\VideoLAN\\VLC`,
+		"WinRAR":             `SOFTWARE\\WinRAR`,
+		"7-Zip":              `SOFTWARE\\7-Zip`,
 	}
 
 	// Check installed software in both 32-bit and 64-bit registry hives

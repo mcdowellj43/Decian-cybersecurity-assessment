@@ -556,6 +556,88 @@ async function buildAgentForOrganization(organization: { id: string; name: strin
   }
 }
 
+/**
+ * Get available modules from an agent
+ * GET /api/agents/:id/modules
+ */
+export const getAgentModules = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+  const agentId = req.params.id;
+  const organizationId = req.user!.organizationId;
+
+  // Verify agent exists and belongs to the organization
+  const agent = await prisma.agent.findFirst({
+    where: {
+      id: agentId,
+      orgId: organizationId,
+    },
+    select: {
+      id: true,
+      hostname: true,
+      status: true,
+    },
+  });
+
+  if (!agent) {
+    return next(new AppError('Agent not found', 404));
+  }
+
+  // For now, since agents don't expose HTTP endpoints, we'll simulate this
+  // by calling the agent executable locally (if available) or return a default set
+  try {
+    // Check if we have the agent executable for this organization
+    const agentFileName = `decian-agent-${organizationId}.exe`;
+    const agentsDir = path.join(process.cwd(), '..', 'agents', 'dist');
+    const agentPath = path.join(agentsDir, agentFileName);
+
+    if (fs.existsSync(agentPath)) {
+      try {
+        // Execute the agent's modules command
+        logger.info(`Executing agent modules command: "${agentPath}" modules --json`);
+        const result = execSync(`"${agentPath}" modules --json`, {
+          timeout: 30000,
+          encoding: 'utf8',
+          stdio: 'pipe'
+        });
+
+        logger.info(`Agent modules command output: ${result}`);
+
+        // Parse the JSON output from the agent
+        const moduleData = JSON.parse(result);
+
+        logger.info(`Retrieved ${moduleData.count} modules from agent ${agentId}`, { moduleData });
+
+        res.status(200).json({
+          status: 'success',
+          data: moduleData.data,
+          count: moduleData.count,
+        });
+        return;
+      } catch (error: any) {
+        logger.warn(`Failed to get modules from agent executable: ${error.message}`, {
+          agentPath,
+          stderr: error.stderr,
+          stdout: error.stdout
+        });
+        // Fall through to default modules
+      }
+    } else {
+      logger.info(`Agent executable not found at: ${agentPath}`);
+    }
+
+    // No fallback - agent executable is required for dynamic module discovery
+    logger.error(`Agent executable not found at: ${agentPath}. Dynamic module discovery requires agent executable.`);
+    return next(new AppError('Agent executable not found - cannot discover modules', 404));
+
+  } catch (error) {
+    logger.error('Error getting agent modules', {
+      agentId,
+      organizationId,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    return next(new AppError('Failed to get agent modules', 500));
+  }
+});
+
 function streamAgentFile(
   agentPath: string,
   agentFileName: string,
