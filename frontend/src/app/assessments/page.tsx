@@ -351,6 +351,30 @@ function CreateAssessmentModal({
     setSelectedModules([]);
   };
 
+  const handleSelectHostBasedModules = () => {
+    const hostBasedModules = availableModules
+      .filter(module => module.category === 'host-based')
+      .map(module => module.checkType);
+    setSelectedModules(prev => {
+      const nonHostBased = prev.filter(moduleType =>
+        !hostBasedModules.includes(moduleType)
+      );
+      return [...nonHostBased, ...hostBasedModules];
+    });
+  };
+
+  const handleSelectNetworkBasedModules = () => {
+    const networkBasedModules = availableModules
+      .filter(module => module.category === 'network-based')
+      .map(module => module.checkType);
+    setSelectedModules(prev => {
+      const nonNetworkBased = prev.filter(moduleType =>
+        !networkBasedModules.includes(moduleType)
+      );
+      return [...nonNetworkBased, ...networkBasedModules];
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAgentId) return;
@@ -543,18 +567,32 @@ function CreateAssessmentModal({
               <div className="flex items-center justify-between">
                 <h4 className="font-medium text-gray-900">Assessment Modules</h4>
                 {availableModules.length > 0 && (
-                  <div className="flex space-x-2">
+                  <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={handleSelectAllModules}
-                      className="text-xs text-blue-600 hover:text-blue-800"
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
                     >
                       Select All
                     </button>
                     <button
                       type="button"
-                      onClick={handleDeselectAllModules}
+                      onClick={handleSelectHostBasedModules}
                       className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      Host-Based
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSelectNetworkBasedModules}
+                      className="text-xs text-purple-600 hover:text-purple-800"
+                    >
+                      Network-Based
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeselectAllModules}
+                      className="text-xs text-gray-600 hover:text-gray-800"
                     >
                       Clear All
                     </button>

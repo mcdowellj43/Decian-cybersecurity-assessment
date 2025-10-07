@@ -123,6 +123,8 @@ const (
 	CheckTypeRemoteAccessExposure = "REMOTE_ACCESS_EXPOSURE"
 	CheckTypeDNSHygieneCheck      = "DNS_HYGIENE_CHECK"
 	CheckTypePrinterEnumeration   = "PRINTER_ENUMERATION"
+	CheckTypeWeakProtocolDetect   = "WEAK_PROTOCOL_DETECTION"
+	CheckTypeUnpatchedBanner      = "UNPATCHED_BANNER"
 )
 
 // Module Category constants

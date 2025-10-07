@@ -56,7 +56,9 @@
       "Bash(./test-agent.exe run --list-modules)",
       "Bash(ping:*)",
       "Bash(rg:*)",
-      "Bash(./start-services.sh:*)"
+      "Bash(./start-services.sh:*)",
+      "Bash(echo $APPDATA)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

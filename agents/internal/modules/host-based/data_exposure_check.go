@@ -50,7 +50,6 @@ func (m *DataExposureCheckModule) GetInfo() modules.ModuleInfo {
 		Platform:         "windows",
 		DefaultRiskLevel: modules.RiskLevelHigh,
 		RequiresAdmin:    true,
-		Category:         modules.CategoryHostBased,
 	}
 }
 
