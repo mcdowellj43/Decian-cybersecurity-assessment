@@ -269,12 +269,36 @@ const maybeUpdateAssessment = async (job: { id: string; payload: unknown }, stat
           hasResults: !!(summary.results),
           resultsIsArray: Array.isArray(summary.results),
           resultsLength: Array.isArray(summary.results) ? summary.results.length : 0,
+          hasTargets: !!(summary.targets),
+          targetsLength: Array.isArray(summary.targets) ? summary.targets.length : 0,
           overallRiskScore: summary.overallRiskScore
         });
 
         // Extract individual module results from job summary
-        if (summary.results && Array.isArray(summary.results)) {
-          const assessmentResults = summary.results.map((result: any) => ({
+        let allResults: any[] = [];
+
+        // Check if results are in the new format (targets[].results)
+        if (summary.targets && Array.isArray(summary.targets)) {
+          for (const target of summary.targets) {
+            if (target.results && Array.isArray(target.results)) {
+              allResults = allResults.concat(target.results);
+            }
+          }
+        }
+
+        // Fallback to old format (summary.results)
+        if (allResults.length === 0 && summary.results && Array.isArray(summary.results)) {
+          allResults = summary.results;
+        }
+
+        logger.info('Results extraction completed', {
+          extractedResults: allResults.length,
+          fromTargets: summary.targets ? summary.targets.length : 0,
+          fromSummary: summary.results ? summary.results.length : 0
+        });
+
+        if (allResults.length > 0) {
+          const assessmentResults = allResults.map((result: any) => ({
             assessmentId,
             checkType: result.checkType,
             resultData: JSON.stringify(result.data || {}),

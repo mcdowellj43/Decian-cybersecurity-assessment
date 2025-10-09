@@ -26,7 +26,11 @@ const SubmitResultsSchema = z.object({
 const EnqueueJobsSchema = z.object({
   agentIds: z.array(z.string().min(1)).min(1),
   modules: z.array(z.string().min(1)).min(1),
-  options: z.record(z.any()).optional(),
+  options: z.object({
+    targetConcurrency: z.number().int().min(2).max(16).optional(),
+    subnet: z.any().optional(),
+    discoveryOverrides: z.any().optional(),
+  }).catchall(z.any()).optional(),
 });
 
 /**

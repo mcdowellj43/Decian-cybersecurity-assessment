@@ -175,13 +175,13 @@ func executeJob(job client.JobEnvelope, cfg *config.Config, log *logger.Logger) 
 }
 
 type assessmentJobPayload struct {
-	AssessmentID      string
-	Modules           []string
-	Options           map[string]interface{}
-	Version           string
-	TargetIPs         []string
-	Discovery         network.DiscoveryOverrides
-	ModuleConcurrency int
+	AssessmentID       string
+	Modules            []string
+	Options            map[string]interface{}
+	Version            string
+	TargetIPs          []string
+	Discovery          network.DiscoveryOverrides
+	TargetConcurrency  int
 }
 
 func parseAssessmentPayload(data map[string]interface{}, log *logger.Logger) (assessmentJobPayload, error) {
@@ -229,8 +229,8 @@ func parseAssessmentPayload(data map[string]interface{}, log *logger.Logger) (as
 			payload.Discovery = overrides
 		}
 
-		if concRaw, exists := opts["moduleConcurrency"]; exists {
-			payload.ModuleConcurrency = parseIntOption(concRaw)
+		if concRaw, exists := opts["targetConcurrency"]; exists {
+			payload.TargetConcurrency = parseIntOption(concRaw)
 		}
 	} else {
 		log.Debug("No options found in payload data")
@@ -313,16 +313,29 @@ func executeAssessmentJob(payload assessmentJobPayload, cfg *config.Config, log 
 		return jobExecutionResult{Status: jobStatusSucceeded, Summary: summary}
 	}
 
-	targetConcurrency := payload.ModuleConcurrency
+	targetConcurrency := payload.TargetConcurrency
 	if targetConcurrency <= 0 {
-		targetConcurrency = 4
+		targetConcurrency = 4 // Default concurrency
 	}
+
+	// Enforce limits: minimum 2, maximum 16
+	if targetConcurrency < 2 {
+		targetConcurrency = 2
+	}
+	if targetConcurrency > 16 {
+		targetConcurrency = 16
+	}
+
+	// Don't exceed the number of discovered hosts
 	if targetConcurrency > len(discoveryResult.Active) {
 		targetConcurrency = len(discoveryResult.Active)
 	}
-	if targetConcurrency <= 0 {
-		targetConcurrency = 1
-	}
+
+	log.Info("Using target concurrency", map[string]interface{}{
+		"requested_concurrency": payload.TargetConcurrency,
+		"effective_concurrency": targetConcurrency,
+		"active_hosts": len(discoveryResult.Active),
+	})
 
 	type targetOutcome struct {
 		host    network.TargetHost
