@@ -21,6 +21,7 @@ import (
 type DNSHygieneCheckModule struct {
 	logger *logger.Logger
 	info   modules.ModuleInfo
+	modules.TargetAware
 }
 
 // NewDNSHygieneCheckModule creates a new instance
