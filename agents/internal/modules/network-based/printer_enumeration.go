@@ -17,6 +17,7 @@ import (
 type IoTPrinterEnumerationModule struct {
 	logger *logger.Logger
 	info   modules.ModuleInfo
+	modules.TargetAware
 }
 
 // NewIoTPrinterEnumerationModule creates a new instance
@@ -43,9 +44,22 @@ func (m *IoTPrinterEnumerationModule) Execute() (*modules.AssessmentResult, erro
 	m.logger.Info("Starting IoT/Printer enumeration", nil)
 	start := time.Now()
 
-	targets, err := discoverLocalTargets(120, 20, 30)
-	if err != nil {
-		return nil, fmt.Errorf("target discovery failed: %w", err)
+	// Get target hosts - use target context if available, otherwise auto-discover
+	var targets []string
+	var err error
+
+	target := m.Target()
+	if target.IP != "" {
+		// Use specific target IP from job context
+		targets = []string{target.IP}
+		m.logger.Debug("Using target IP from context", map[string]interface{}{"target": target.IP})
+	} else {
+		// Fall back to auto-discovery for backward compatibility
+		targets, err = discoverLocalTargets(120, 20, 30)
+		if err != nil {
+			return nil, fmt.Errorf("target discovery failed: %w", err)
+		}
+		m.logger.Debug("Auto-discovered target hosts", map[string]interface{}{"count": len(targets)})
 	}
 
 	findings := []map[string]interface{}{}

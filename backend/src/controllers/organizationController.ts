@@ -232,6 +232,9 @@ export const regenerateEnrollmentToken = catchAsync(async (req: Request, res: Re
   }
 
   const enrollmentToken = await prisma.$transaction(async (tx) => {
+    if (!req.user?.id) {
+      throw new Error('User ID is required');
+    }
     return await createEnrollmentToken(tx, id, req.user!.id);
   });
 

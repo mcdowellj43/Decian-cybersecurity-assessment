@@ -18,6 +18,7 @@ import (
 type WebPortalDiscoveryModule struct {
 	logger *logger.Logger
 	info   modules.ModuleInfo
+	modules.TargetAware
 }
 
 // WebPortal represents discovered web portal information
@@ -91,10 +92,22 @@ func (m *WebPortalDiscoveryModule) Execute() (*modules.AssessmentResult, error) 
 	m.logger.Info("Starting web portal discovery assessment", nil)
 	startTime := time.Now()
 
-	// Get target hosts from local network
-	hosts, err := m.getTargetHosts()
-	if err != nil {
-		return nil, fmt.Errorf("failed to determine target hosts: %w", err)
+	// Get target hosts - use target context if available, otherwise auto-discover
+	var hosts []string
+	var err error
+
+	target := m.Target()
+	if target.IP != "" {
+		// Use specific target IP from job context
+		hosts = []string{target.IP}
+		m.logger.Debug("Using target IP from context", map[string]interface{}{"target": target.IP})
+	} else {
+		// Fall back to auto-discovery for backward compatibility
+		hosts, err = m.getTargetHosts()
+		if err != nil {
+			return nil, fmt.Errorf("failed to determine target hosts: %w", err)
+		}
+		m.logger.Debug("Auto-discovered target hosts", map[string]interface{}{"count": len(hosts)})
 	}
 
 	// Perform web portal discovery

@@ -17,6 +17,7 @@ import (
 type UnpatchedBannerDetectionModule struct {
 	logger *logger.Logger
 	info   modules.ModuleInfo
+	modules.TargetAware
 }
 
 // NewUnpatchedBannerDetectionModule creates a new instance
@@ -43,9 +44,22 @@ func (m *UnpatchedBannerDetectionModule) Execute() (*modules.AssessmentResult, e
 	m.logger.Info("Starting unpatched banner detection", nil)
 	start := time.Now()
 
-	targets, err := discoverLocalTargets(100, 24, 30) // cap hosts, /20..../30 safety
-	if err != nil {
-		return nil, fmt.Errorf("target discovery failed: %w", err)
+	// Get target hosts - use target context if available, otherwise auto-discover
+	var targets []string
+	var err error
+
+	target := m.Target()
+	if target.IP != "" {
+		// Use specific target IP from job context
+		targets = []string{target.IP}
+		m.logger.Debug("Using target IP from context", map[string]interface{}{"target": target.IP})
+	} else {
+		// Fall back to auto-discovery for backward compatibility
+		targets, err = discoverLocalTargets(100, 24, 30) // cap hosts, /20..../30 safety
+		if err != nil {
+			return nil, fmt.Errorf("target discovery failed: %w", err)
+		}
+		m.logger.Debug("Auto-discovered target hosts", map[string]interface{}{"count": len(targets)})
 	}
 
 	// Common ports to probe (lightweight)
@@ -434,7 +448,6 @@ func discoverLocalTargets(maxHosts, minMask, maxMask int) ([]string, error) {
 	}
 	return out, nil
 }
-
 
 // Plugin constructor (Required)
 func NewUnpatchedBannerDetectionModulePlugin(logger *logger.Logger) modules.ModulePlugin {

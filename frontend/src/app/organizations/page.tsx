@@ -16,7 +16,7 @@ export default function OrganizationsPage() {
   const [formData, setFormData] = useState({ name: '' });
   const [creating, setCreating] = useState(false);
 
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = user?.role === 'admin';
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

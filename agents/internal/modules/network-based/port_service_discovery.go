@@ -15,6 +15,7 @@ import (
 type PortServiceDiscoveryModule struct {
 	logger *logger.Logger
 	info   modules.ModuleInfo
+	modules.TargetAware
 }
 
 // ServiceFingerprint represents discovered service information
@@ -68,10 +69,22 @@ func (m *PortServiceDiscoveryModule) Execute() (*modules.AssessmentResult, error
 	m.logger.Info("Starting port and service discovery assessment", nil)
 	startTime := time.Now()
 
-	// Get local network range
-	networkRanges, err := m.getLocalNetworkRanges()
-	if err != nil {
-		return nil, fmt.Errorf("failed to determine local network ranges: %w", err)
+	// Get network ranges - use target context if available, otherwise auto-discover
+	var networkRanges []string
+	var err error
+
+	target := m.Target()
+	if target.IP != "" {
+		// Use specific target IP from job context
+		networkRanges = []string{target.IP}
+		m.logger.Debug("Using target IP from context", map[string]interface{}{"target": target.IP})
+	} else {
+		// Fall back to auto-discovery for backward compatibility
+		networkRanges, err = m.getLocalNetworkRanges()
+		if err != nil {
+			return nil, fmt.Errorf("failed to determine local network ranges: %w", err)
+		}
+		m.logger.Debug("Auto-discovered network ranges", map[string]interface{}{"count": len(networkRanges)})
 	}
 
 	// Define Tier-A port lists from specifications

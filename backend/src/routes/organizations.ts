@@ -1,4 +1,5 @@
 import express from 'express';
+import { UserRole } from '@prisma/client';
 import { validateSchema, createOrganizationSchema, updateOrganizationSchema } from '@/utils/validation';
 import { authenticate, requireRole } from '@/middleware/auth';
 import {
@@ -22,7 +23,7 @@ router.use(authenticate);
  * @desc    Get all organizations (admin only)
  * @access  Private (Admin)
  */
-router.get('/', requireRole(['ADMIN']), getOrganizations);
+router.get('/', requireRole(UserRole.ADMIN), getOrganizations);
 
 /**
  * @route   POST /api/organizations
@@ -31,7 +32,7 @@ router.get('/', requireRole(['ADMIN']), getOrganizations);
  */
 router.post(
   '/',
-  requireRole(['ADMIN']),
+  requireRole(UserRole.ADMIN),
   validateSchema(createOrganizationSchema),
   createOrganization
 );
@@ -61,7 +62,7 @@ router.put(
  */
 router.delete(
   '/:id',
-  requireRole(['ADMIN']),
+  requireRole(UserRole.ADMIN),
   deleteOrganization
 );
 
