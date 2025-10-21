@@ -7,6 +7,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useOrganizationDashboardData } from '@/hooks/useOrganizationDashboardData';
 import { useOrganizations } from '@/hooks/useOrganizations';
+import { useAuthStore } from '@/store/authStore';
 import { Shield, Activity, FileText, AlertTriangle, Loader2, ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -49,8 +50,9 @@ function OrganizationRiskScoreCard() {
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { organizations, currentOrganization } = useOrganizations();
-  const { assessmentStats: orgAssessmentStats, isLoading: orgStatsLoading, refetch } = useOrganizationDashboardData(selectedOrgId || currentOrganization?.id);
+  const { user } = useAuthStore();
+  const { organizations } = useOrganizations();
+  const { assessmentStats: orgAssessmentStats, isLoading: orgStatsLoading, refetch } = useOrganizationDashboardData(selectedOrgId || user?.organizationId);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -74,7 +76,7 @@ function OrganizationRiskScoreCard() {
 
   const displayOrg = selectedOrgId
     ? organizations.find(org => org.id === selectedOrgId)
-    : currentOrganization;
+    : organizations.find(org => org.id === user?.organizationId);
 
   if (orgStatsLoading && !orgAssessmentStats) {
     return (
@@ -119,16 +121,16 @@ function OrganizationRiskScoreCard() {
               {showDropdown && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
                   <div className="py-1">
-                    {currentOrganization && (
+                    {user?.organizationId && (
                       <button
                         onClick={() => handleOrganizationChange('')}
                         className={`w-full text-left px-3 py-2 hover:bg-gray-100 ${!selectedOrgId ? 'bg-blue-50 text-blue-700' : 'text-gray-900'}`}
                       >
-                        {currentOrganization.name} (Current)
+                        {organizations.find(org => org.id === user?.organizationId)?.name} (Current)
                       </button>
                     )}
                     {organizations
-                      .filter(org => org.id !== currentOrganization?.id)
+                      .filter(org => org.id !== user?.organizationId)
                       .map((org) => (
                         <button
                           key={org.id}

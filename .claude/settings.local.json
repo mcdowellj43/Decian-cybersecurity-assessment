@@ -58,7 +58,10 @@
       "Bash(rg:*)",
       "Bash(./start-services.sh:*)",
       "Bash(echo $APPDATA)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker run:*)",
+      "Bash(docker-compose:*)"
     ],
     "deny": [],
     "ask": []

@@ -115,7 +115,7 @@ export default function OrganizationDetailPage() {
   const [tokenExpiry, setTokenExpiry] = useState<string>('');
   const [regenerating, setRegenerating] = useState(false);
 
-  const canAccess = user?.role === 'ADMIN' || user?.organizationId === organizationId;
+  const canAccess = user?.role === 'admin' || user?.organizationId === organizationId;
 
   useEffect(() => {
     // Get current enrollment token on page load
